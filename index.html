@@ -907,6 +907,128 @@
                 color: black !important;
             }
         }
+
+        /* Notification System Styles */
+        #notification-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 10000;
+            pointer-events: none;
+        }
+
+        .notification {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            margin-bottom: 12px;
+            max-width: 400px;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+            pointer-events: all;
+            border-left: 4px solid #3b82f6;
+        }
+
+        .notification.notification-success {
+            border-left-color: #10b981;
+        }
+
+        .notification.notification-error {
+            border-left-color: #ef4444;
+        }
+
+        .notification.notification-warning {
+            border-left-color: #f59e0b;
+        }
+
+        .notification.notification-info {
+            border-left-color: #3b82f6;
+        }
+
+        .notification-content {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            gap: 12px;
+        }
+
+        .notification-icon {
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .notification-message {
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.4;
+            color: #374151;
+        }
+
+        .notification-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            color: #9ca3af;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .notification-close:hover {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+
+        /* Notification animations */
+        .notification {
+            animation: slideInNotification 0.3s ease forwards;
+        }
+
+        @keyframes slideInNotification {
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Screen reader only content */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border: 0;
+        }
+
+        /* Dark theme for notifications */
+        [data-theme="dark"] .notification {
+            background: #1f2937;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        [data-theme="dark"] .notification-message {
+            color: #e5e7eb;
+        }
+
+        [data-theme="dark"] .notification-close {
+            color: #9ca3af;
+        }
+
+        [data-theme="dark"] .notification-close:hover {
+            background: #374151;
+            color: #d1d5db;
+        }
     </style>
 </head>
 <body>
@@ -2183,6 +2305,417 @@
         
         Scroll down to chat with the AI and learn more about Matthew's work!
         `);
+
+        // ========================================
+        // PHASE 1 & 2: FOUNDATION SYSTEMS
+        // ========================================
+        
+        // Health Monitoring System
+        class HealthMonitor {
+            constructor() {
+                this.status = 'initializing';
+                this.checks = new Map();
+                this.lastCheck = null;
+                this.init();
+            }
+            
+            init() {
+                this.status = 'healthy';
+                this.startHealthChecks();
+                console.log('💚 Health monitoring system initialized');
+            }
+            
+            startHealthChecks() {
+                setInterval(() => {
+                    this.runHealthCheck();
+                }, 30000); // Every 30 seconds
+            }
+            
+            runHealthCheck() {
+                const checks = {
+                    timestamp: Date.now(),
+                    dom: document.querySelector('body') !== null,
+                    chat: document.querySelector('#chat-widget-container') !== null,
+                    memory: this.checkMemoryUsage(),
+                    performance: performance.now() > 0
+                };
+                
+                this.checks.set(Date.now(), checks);
+                this.lastCheck = checks;
+                
+                const healthy = Object.values(checks).every(check => 
+                    typeof check === 'boolean' ? check : true
+                );
+                
+                this.status = healthy ? 'healthy' : 'warning';
+                
+                if (!healthy) {
+                    console.warn('⚠️ Health check failed:', checks);
+                }
+            }
+            
+            checkMemoryUsage() {
+                if ('memory' in performance) {
+                    const memory = performance.memory;
+                    return memory.usedJSHeapSize / memory.jsHeapSizeLimit < 0.9;
+                }
+                return true;
+            }
+            
+            getHealthReport() {
+                return {
+                    status: this.status,
+                    lastCheck: this.lastCheck,
+                    uptime: Date.now() - (this.checks.keys().next().value || Date.now()),
+                    totalChecks: this.checks.size
+                };
+            }
+        }
+        
+        // Error Handler System
+        class ErrorHandler {
+            constructor() {
+                this.errors = [];
+                this.maxErrors = 100;
+                this.init();
+            }
+            
+            init() {
+                this.setupGlobalErrorHandling();
+                console.log('🛡️ Error handling system initialized');
+            }
+            
+            setupGlobalErrorHandling() {
+                window.addEventListener('error', (event) => {
+                    this.logError('JavaScript Error', {
+                        message: event.message,
+                        source: event.filename,
+                        line: event.lineno,
+                        column: event.colno,
+                        stack: event.error?.stack
+                    });
+                });
+                
+                window.addEventListener('unhandledrejection', (event) => {
+                    this.logError('Promise Rejection', {
+                        reason: event.reason
+                    });
+                });
+            }
+            
+            logError(type, details) {
+                const error = {
+                    type,
+                    details,
+                    timestamp: Date.now(),
+                    url: window.location.href
+                };
+                
+                this.errors.push(error);
+                
+                // Keep only recent errors
+                if (this.errors.length > this.maxErrors) {
+                    this.errors = this.errors.slice(-this.maxErrors);
+                }
+                
+                console.error(`🚨 ${type}:`, details);
+            }
+            
+            getErrors() {
+                return this.errors.slice(-10); // Return last 10 errors
+            }
+        }
+        
+        // Notification System
+        class NotificationSystem {
+            constructor() {
+                this.container = null;
+                this.notifications = [];
+                this.init();
+            }
+            
+            init() {
+                this.container = document.getElementById('notification-container');
+                if (!this.container) {
+                    this.createContainer();
+                }
+                console.log('🔔 Notification system initialized');
+            }
+            
+            createContainer() {
+                this.container = document.createElement('div');
+                this.container.id = 'notification-container';
+                this.container.setAttribute('aria-live', 'polite');
+                this.container.setAttribute('aria-atomic', 'true');
+                document.body.appendChild(this.container);
+            }
+            
+            show(message, type = 'info', duration = 5000) {
+                const notification = document.createElement('div');
+                notification.className = `notification notification-${type}`;
+                notification.innerHTML = `
+                    <div class="notification-content">
+                        <span class="notification-icon">${this.getIcon(type)}</span>
+                        <span class="notification-message">${message}</span>
+                        <button class="notification-close" onclick="this.parentElement.parentElement.remove()">×</button>
+                    </div>
+                `;
+                
+                this.container.appendChild(notification);
+                this.notifications.push(notification);
+                
+                // Auto remove
+                if (duration > 0) {
+                    setTimeout(() => {
+                        if (notification.parentElement) {
+                            notification.remove();
+                        }
+                    }, duration);
+                }
+                
+                return notification;
+            }
+            
+            getIcon(type) {
+                const icons = {
+                    success: '✅',
+                    error: '❌',
+                    warning: '⚠️',
+                    info: 'ℹ️'
+                };
+                return icons[type] || icons.info;
+            }
+        }
+        
+        // Loading System
+        class LoadingSystem {
+            constructor() {
+                this.overlay = null;
+                this.isLoading = false;
+                this.init();
+            }
+            
+            init() {
+                this.overlay = document.getElementById('loading-overlay');
+                console.log('⏳ Loading system initialized');
+            }
+            
+            show(message = 'Loading...') {
+                if (this.overlay) {
+                    const textElement = this.overlay.querySelector('.loading-text');
+                    if (textElement) {
+                        textElement.textContent = message;
+                    }
+                    this.overlay.style.display = 'flex';
+                    this.isLoading = true;
+                }
+            }
+            
+            hide() {
+                if (this.overlay) {
+                    this.overlay.style.display = 'none';
+                    this.isLoading = false;
+                }
+            }
+            
+            getStatus() {
+                return { isLoading: this.isLoading };
+            }
+        }
+        
+        // Theme Manager
+        class ThemeManager {
+            constructor() {
+                this.currentTheme = 'auto';
+                this.systemTheme = 'light';
+                this.init();
+            }
+            
+            init() {
+                this.detectSystemTheme();
+                this.loadSavedTheme();
+                this.setupThemeToggle();
+                this.applyTheme();
+                console.log('🎨 Theme management system initialized');
+            }
+            
+            detectSystemTheme() {
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    this.systemTheme = 'dark';
+                } else {
+                    this.systemTheme = 'light';
+                }
+                
+                // Listen for system theme changes
+                window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+                    this.systemTheme = e.matches ? 'dark' : 'light';
+                    if (this.currentTheme === 'auto') {
+                        this.applyTheme();
+                    }
+                });
+            }
+            
+            loadSavedTheme() {
+                const saved = localStorage.getItem('theme');
+                if (saved && ['light', 'dark', 'auto'].includes(saved)) {
+                    this.currentTheme = saved;
+                }
+            }
+            
+            setupThemeToggle() {
+                const toggle = document.getElementById('theme-toggle');
+                if (toggle) {
+                    toggle.addEventListener('click', () => {
+                        this.toggleTheme();
+                    });
+                }
+            }
+            
+            toggleTheme() {
+                const themes = ['light', 'dark', 'auto'];
+                const currentIndex = themes.indexOf(this.currentTheme);
+                const nextIndex = (currentIndex + 1) % themes.length;
+                this.setTheme(themes[nextIndex]);
+            }
+            
+            setTheme(theme) {
+                if (['light', 'dark', 'auto'].includes(theme)) {
+                    this.currentTheme = theme;
+                    localStorage.setItem('theme', theme);
+                    this.applyTheme();
+                }
+            }
+            
+            applyTheme() {
+                const effectiveTheme = this.currentTheme === 'auto' ? this.systemTheme : this.currentTheme;
+                
+                if (effectiveTheme === 'dark') {
+                    document.documentElement.setAttribute('data-theme', 'dark');
+                } else {
+                    document.documentElement.setAttribute('data-theme', 'light');
+                }
+                
+                // Update toggle icon
+                const toggle = document.getElementById('theme-toggle');
+                if (toggle) {
+                    const icons = {
+                        light: '🌙',
+                        dark: '☀️',
+                        auto: '🌓'
+                    };
+                    toggle.textContent = icons[this.currentTheme] || '🌙';
+                }
+            }
+            
+            getCurrentTheme() {
+                return {
+                    current: this.currentTheme,
+                    effective: this.currentTheme === 'auto' ? this.systemTheme : this.currentTheme,
+                    system: this.systemTheme
+                };
+            }
+        }
+        
+        // Accessibility Manager
+        class AccessibilityManager {
+            constructor() {
+                this.features = {
+                    keyboardNavigation: false,
+                    screenReader: false,
+                    highContrast: false,
+                    reducedMotion: false
+                };
+                this.init();
+            }
+            
+            init() {
+                this.detectAccessibilityFeatures();
+                this.setupKeyboardNavigation();
+                this.setupFocusManagement();
+                this.setupScreenReaderSupport();
+                console.log('♿ Accessibility management system initialized');
+            }
+            
+            detectAccessibilityFeatures() {
+                // Detect reduced motion preference
+                if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                    this.features.reducedMotion = true;
+                    document.body.classList.add('reduced-motion');
+                }
+                
+                // Detect high contrast preference
+                if (window.matchMedia && window.matchMedia('(prefers-contrast: high)').matches) {
+                    this.features.highContrast = true;
+                    document.body.classList.add('high-contrast');
+                }
+            }
+            
+            setupKeyboardNavigation() {
+                // Enable keyboard navigation
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Tab') {
+                        this.features.keyboardNavigation = true;
+                        document.body.classList.add('keyboard-navigation');
+                    }
+                    
+                    // Skip links
+                    if (e.key === 'Enter' && e.target.classList.contains('skip-link')) {
+                        e.preventDefault();
+                        const target = document.querySelector(e.target.getAttribute('href'));
+                        if (target) {
+                            target.focus();
+                        }
+                    }
+                });
+                
+                // Detect mouse usage
+                document.addEventListener('mousedown', () => {
+                    document.body.classList.remove('keyboard-navigation');
+                });
+            }
+            
+            setupFocusManagement() {
+                // Enhance focus visibility
+                document.addEventListener('focusin', (e) => {
+                    if (e.target.tagName && !e.target.hasAttribute('tabindex')) {
+                        e.target.setAttribute('data-focused', 'true');
+                    }
+                });
+                
+                document.addEventListener('focusout', (e) => {
+                    if (e.target.hasAttribute('data-focused')) {
+                        e.target.removeAttribute('data-focused');
+                    }
+                });
+            }
+            
+            setupScreenReaderSupport() {
+                // Add screen reader announcements for dynamic content
+                const announceToScreenReader = (message) => {
+                    const announcement = document.createElement('div');
+                    announcement.setAttribute('aria-live', 'polite');
+                    announcement.setAttribute('aria-atomic', 'true');
+                    announcement.className = 'sr-only';
+                    announcement.textContent = message;
+                    document.body.appendChild(announcement);
+                    
+                    setTimeout(() => {
+                        document.body.removeChild(announcement);
+                    }, 1000);
+                };
+                
+                window.announceToScreenReader = announceToScreenReader;
+            }
+            
+            getStatus() {
+                return {
+                    features: this.features,
+                    isKeyboardUser: document.body.classList.contains('keyboard-navigation'),
+                    reducedMotion: this.features.reducedMotion,
+                    highContrast: this.features.highContrast
+                };
+            }
+        }
 
         // ========================================
         // PHASE 3: ADVANCED FEATURES & INTELLIGENCE
