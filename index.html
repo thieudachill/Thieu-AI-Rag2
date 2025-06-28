@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matthew's Portfolio</title> <!-- Tiêu đề trang web -->
+    <style>
+        /* CSS để trang web trông đẹp hơn một chút */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: #1c1e21;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            text-align: center;
+        }
+        .container {
+            max-width: 600px;
+            padding: 40px;
+        }
+        h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        p {
+            font-size: 18px;
+            line-height: 1.6;
+        }
+        /* Style cho nút bấm chat */
+        #chat-button {
+            position: fixed; /* Nút sẽ đứng yên một chỗ */
+            bottom: 30px;
+            right: 30px;
+            background-color: #0084ff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            font-size: 24px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Welcome to my space!</h1>
+        <p>I'm Matthew, a tech enthusiast exploring AI and business expansion. Feel free to look around. If you have any questions about me, just ask my AI assistant!</p>
+    </div>
+
+    <!-- Đây là nút bấm để mở chatbot pop-up -->
+    <button id="chat-button">💬</button>
+
+    <script type="module">
+    // Import thư viện chat của n8n
+    import { createChat } from 'https://cdn.jsdelivr.net/npm/@n8n/chat/dist/chat.bundle.es.js';
+
+    // Lấy Webhook ID từ workflow n8n của bạn
+    const n8nWebhookId = 'http://localhost:5678/webhook/9e86df65-9069-444d-ae7a-15a8f4676abb/chat'; // << THAY ID CỦA BẠN VÀO ĐÂY
+
+    // Lấy link ngrok bạn đã chạy ở Giai đoạn 1
+    const ngrokUrl = 'https://505a-2405-4803-d738-6750-dcce-d1a4-a784-f659.ngrok-free.app'; // << THAY LINK NGROK CỦA BẠN VÀO ĐÂY (Ví dụ: https://ten-ngau-nhien.ngrok-free.app)
+
+    // Tạo ra webhookUrl hoàn chỉnh
+    const finalWebhookUrl = `${ngrokUrl}/webhook/${n8nWebhookId}/chat`;
+
+    createChat({
+        // Chế độ POP-UP
+        mode: 'popup',
+
+        // Nút bấm để kích hoạt pop-up
+        // Nó sẽ tìm đến nút có id="chat-button" mà chúng ta đã tạo ở trên
+        button: {
+            id: 'chat-button',
+        },
+
+        // Cấu hình webhook để giao diện biết "nói chuyện" với ai
+        webhookUrl: finalWebhookUrl,
+
+        // Tin nhắn chào mừng
+        initialMessages: ["Hế lô bạn iu! Tui là thèn bạn của Thiệu nè. Muốn hỏi gì về ổng cứ inbox tui nha!"],
+
+        // Các cài đặt khác
+        showWelcomeScreen: false,
+        loadPreviousSession: false,
+    });
+</script>
+
+</body>
+</html>
