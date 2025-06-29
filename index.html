@@ -358,18 +358,21 @@
 
         .analytics-controls {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             margin-bottom: 20px;
+            flex-wrap: wrap;
         }
 
         .analytics-btn {
             flex: 1;
-            padding: 8px 12px;
+            min-width: 100px;
+            padding: 8px 10px;
             border: none;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 12px;
+            font-size: 11px;
             transition: all 0.2s ease;
+            white-space: nowrap;
         }
 
         .analytics-btn.primary {
@@ -624,8 +627,12 @@
         
         <div class="analytics-content">
             <div class="analytics-controls">
-                <button class="analytics-btn primary" onclick="refreshAnalytics()">🔄 Refresh</button>
-                <button class="analytics-btn secondary" onclick="exportAnalytics()">📤 Export</button>
+                                    <button class="analytics-btn primary" onclick="refreshAnalytics()">🔄 Refresh</button>
+                    <button class="analytics-btn secondary" onclick="exportAnalytics()">📤 Export JSON</button>
+                    <button class="analytics-btn secondary" onclick="exportToGoogleDocs()">📄 Export to Google Docs</button>
+                    <button class="analytics-btn secondary" onclick="testGoogleSheets()">📊 Test Google Sheets</button>
+                    <button class="analytics-btn secondary" onclick="initializeGoogleSheets()">🚀 Initialize Google Sheets</button>
+                    <button class="analytics-btn secondary" onclick="openGoogleSheet()">📄 Open Google Sheet</button>
             </div>
 
             <div class="analytics-section">
@@ -843,21 +850,59 @@
             }
 
             async sendToServer(interaction) {
-                // Optional: Send to your logging endpoint
-                const LOGGING_ENDPOINT = `${API_URL}/log-interaction`;
+                // Send to multiple endpoints including Google Sheets
+                const promises = [];
                 
-                try {
-                    await fetch(LOGGING_ENDPOINT, {
+                // 1. Google Sheets API (direct integration)
+                if (googleSheetsLogger.isEnabled) {
+                    promises.push(
+                        googleSheetsLogger.appendToSheet(interaction)
+                            .then(result => ({ name: 'Google Sheets API', success: result.success, result }))
+                            .catch(error => ({ name: 'Google Sheets API', success: false, error }))
+                    );
+                }
+                
+                // 2. n8n Logging endpoint (if available)
+                promises.push(
+                    fetch(`${API_URL}/log-interaction`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
                             'ngrok-skip-browser-warning': 'true'
                         },
                         body: JSON.stringify(interaction)
+                    })
+                    .then(response => ({ name: 'n8n Logging', success: response.ok, response }))
+                    .catch(error => ({ name: 'n8n Logging', success: false, error }))
+                );
+                
+                // 3. Google Apps Script (optional legacy support)
+                const appsScriptUrl = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
+                if (appsScriptUrl && appsScriptUrl !== 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE') {
+                    promises.push(
+                        fetch(appsScriptUrl, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(interaction)
+                        })
+                        .then(response => ({ name: 'Google Apps Script', success: response.ok, response }))
+                        .catch(error => ({ name: 'Google Apps Script', success: false, error }))
+                    );
+                }
+                
+                // Execute all promises and log results
+                try {
+                    const results = await Promise.allSettled(promises);
+                    results.forEach((result, index) => {
+                        const logResult = result.status === 'fulfilled' ? result.value : { name: 'Unknown', success: false, error: result.reason };
+                        if (logResult.success) {
+                            console.log(`✅ Logged to ${logResult.name}`);
+                        } else {
+                            console.log(`❌ Logging to ${logResult.name} failed:`, logResult.error);
+                        }
                     });
                 } catch (error) {
-                    // Silently fail - logging shouldn't break the chat
-                    console.log('Logging to server failed (optional):', error);
+                    console.error('❌ Unexpected error in sendToServer:', error);
                 }
             }
 
@@ -994,14 +1039,421 @@
             }
         }
 
-        // Initialize logger
+        // Google Sheets API Integration Class
+        class GoogleSheetsLogger {
+            constructor(config) {
+                this.config = config;
+                this.isEnabled = config.apiKey && config.sheetId && 
+                                config.apiKey !== 'YOUR_GOOGLE_SHEETS_API_KEY_HERE' && 
+                                config.sheetId !== 'YOUR_GOOGLE_SHEET_ID_HERE';
+                console.log('📊 Google Sheets Logger:', this.isEnabled ? 'Enabled' : 'Disabled (configure API key and Sheet ID)');
+            }
+
+            async appendToSheet(data) {
+                if (!this.isEnabled) {
+                    console.log('📊 Google Sheets: Not configured, skipping...');
+                    return { success: false, reason: 'not_configured' };
+                }
+
+                try {
+                    // Format data for Google Sheets
+                    const rowData = this.formatDataForSheet(data);
+                    
+                    // Append to sheet using Google Sheets API
+                    const response = await fetch(
+                        `${this.config.apiUrl}/${this.config.sheetId}/values/${this.config.range}:append?valueInputOption=RAW&key=${this.config.apiKey}`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                values: [rowData]
+                            })
+                        }
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(`Google Sheets API error: ${response.status} ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    console.log('✅ Google Sheets: Data logged successfully', result);
+                    return { success: true, result };
+
+                } catch (error) {
+                    console.error('❌ Google Sheets: Failed to log data', error);
+                    return { success: false, error: error.message };
+                }
+            }
+
+            formatDataForSheet(data) {
+                // Convert interaction data to sheet row format
+                const timestamp = new Date(data.timestamp).toLocaleString();
+                const sessionId = data.sessionId || '';
+                const type = data.type || '';
+                
+                let message = '';
+                let responseTime = '';
+                let messageLength = '';
+                let error = '';
+                let context = '';
+                
+                switch(data.type) {
+                    case 'user_message':
+                        message = data.data.message || '';
+                        messageLength = data.data.messageLength || '';
+                        break;
+                    case 'ai_response':
+                        message = data.data.response || '';
+                        responseTime = data.data.responseTime || '';
+                        messageLength = data.data.responseLength || '';
+                        break;
+                    case 'error':
+                        error = data.data.error || '';
+                        context = data.data.context || '';
+                        break;
+                    case 'quick_action':
+                        message = data.data.action || '';
+                        break;
+                    default:
+                        message = JSON.stringify(data.data);
+                }
+
+                return [
+                    timestamp,                              // A: Timestamp
+                    sessionId,                             // B: Session ID
+                    type,                                  // C: Type
+                    message,                               // D: Message/Response
+                    responseTime,                          // E: Response Time
+                    messageLength,                         // F: Message Length
+                    data.metadata?.userAgent || '',       // G: User Agent
+                    data.metadata?.language || '',        // H: Language
+                    data.metadata?.timezone || '',        // I: Timezone
+                    error,                                 // J: Error
+                    context,                               // K: Context
+                    JSON.stringify(data.metadata || {})   // L: Full Metadata
+                ];
+            }
+
+            async getSheetData() {
+                if (!this.isEnabled) {
+                    return { success: false, reason: 'not_configured' };
+                }
+
+                try {
+                    const response = await fetch(
+                        `${this.config.apiUrl}/${this.config.sheetId}/values/${this.config.range}?key=${this.config.apiKey}`
+                    );
+
+                    if (!response.ok) {
+                        throw new Error(`Google Sheets API error: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    return { success: true, data: result.values || [] };
+
+                } catch (error) {
+                    console.error('❌ Google Sheets: Failed to read data', error);
+                    return { success: false, error: error.message };
+                }
+            }
+
+            async initializeSheet() {
+                if (!this.isEnabled) {
+                    return false;
+                }
+
+                try {
+                    // Check if sheet has headers
+                    const sheetData = await this.getSheetData();
+                    
+                    if (sheetData.success && sheetData.data.length === 0) {
+                        // Sheet is empty, add headers
+                        const headers = [
+                            'Timestamp', 'Session ID', 'Type', 'Message/Response',
+                            'Response Time (ms)', 'Message Length', 'User Agent', 'Language',
+                            'Timezone', 'Error', 'Context', 'Metadata'
+                        ];
+
+                        const response = await fetch(
+                            `${this.config.apiUrl}/${this.config.sheetId}/values/A1:L1?valueInputOption=RAW&key=${this.config.apiKey}`,
+                            {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ values: [headers] })
+                            }
+                        );
+
+                        if (response.ok) {
+                            console.log('✅ Google Sheets: Headers initialized');
+                            return true;
+                        }
+                    }
+                    
+                    return true;
+                } catch (error) {
+                    console.error('❌ Google Sheets: Failed to initialize', error);
+                    return false;
+                }
+            }
+
+            async generateAnalyticsReport() {
+                if (!this.isEnabled) {
+                    return { success: false, reason: 'not_configured' };
+                }
+
+                try {
+                    const sheetData = await this.getSheetData();
+                    if (!sheetData.success) {
+                        return sheetData;
+                    }
+
+                    const data = sheetData.data.slice(1); // Skip headers
+                    const analytics = this.analyzeSheetData(data);
+                    
+                    console.log('📊 Google Sheets Analytics:', analytics);
+                    return { success: true, analytics };
+
+                } catch (error) {
+                    console.error('❌ Google Sheets: Failed to generate analytics', error);
+                    return { success: false, error: error.message };
+                }
+            }
+
+            analyzeSheetData(data) {
+                const analytics = {
+                    totalInteractions: data.length,
+                    messageTypes: {},
+                    sessionCount: new Set(),
+                    averageResponseTime: 0,
+                    errorCount: 0,
+                    popularQuestions: {},
+                    timeRange: { start: null, end: null }
+                };
+
+                let responseTimes = [];
+
+                data.forEach(row => {
+                    const [timestamp, sessionId, type, message, responseTime] = row;
+                    
+                    // Count message types
+                    analytics.messageTypes[type] = (analytics.messageTypes[type] || 0) + 1;
+                    
+                    // Track unique sessions
+                    if (sessionId) analytics.sessionCount.add(sessionId);
+                    
+                    // Collect response times
+                    if (responseTime && !isNaN(responseTime)) {
+                        responseTimes.push(parseFloat(responseTime));
+                    }
+                    
+                    // Count errors
+                    if (type === 'error') analytics.errorCount++;
+                    
+                    // Track questions
+                    if (type === 'user_message' && message) {
+                        const key = message.toLowerCase().substring(0, 100);
+                        analytics.popularQuestions[key] = (analytics.popularQuestions[key] || 0) + 1;
+                    }
+                    
+                    // Track time range
+                    if (timestamp) {
+                        const date = new Date(timestamp);
+                        if (!analytics.timeRange.start || date < analytics.timeRange.start) {
+                            analytics.timeRange.start = date;
+                        }
+                        if (!analytics.timeRange.end || date > analytics.timeRange.end) {
+                            analytics.timeRange.end = date;
+                        }
+                    }
+                });
+
+                // Calculate average response time
+                if (responseTimes.length > 0) {
+                    analytics.averageResponseTime = Math.round(
+                        responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+                    );
+                }
+
+                // Convert sessionCount to number
+                analytics.sessionCount = analytics.sessionCount.size;
+
+                // Sort popular questions
+                analytics.popularQuestions = Object.entries(analytics.popularQuestions)
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 10)
+                    .reduce((obj, [question, count]) => {
+                        obj[question] = count;
+                        return obj;
+                    }, {});
+
+                return analytics;
+            }
+
+            getStatus() {
+                return {
+                    enabled: this.isEnabled,
+                    configured: this.config.apiKey !== 'YOUR_GOOGLE_SHEETS_API_KEY_HERE',
+                    sheetId: this.config.sheetId !== 'YOUR_GOOGLE_SHEET_ID_HERE' ? this.config.sheetId : 'Not configured'
+                };
+            }
+        }
+
+        // Initialize Google Sheets Logger
+        const googleSheetsLogger = new GoogleSheetsLogger(GOOGLE_SHEETS_CONFIG);
+
+        // Initialize AI Logger
         const aiLogger = new AIInteractionLogger();
         
-        // Make logger globally accessible for console debugging
+        // Make loggers globally accessible for console debugging
         window.aiLogger = aiLogger;
+        window.googleSheetsLogger = googleSheetsLogger;
         window.getAnalytics = () => aiLogger.getAnalyticsSummary();
         window.exportAnalytics = () => aiLogger.exportData();
         window.viewDashboard = () => console.table(aiLogger.getRealtimeDashboard());
+        
+        // Google Docs integration helpers
+        window.setupGoogleDocs = function(scriptUrl) {
+            // Update the Google Apps Script URL
+            const logger = window.aiLogger;
+            logger.googleScriptUrl = scriptUrl;
+            console.log('✅ Google Docs integration configured');
+            console.log('📄 New interactions will be logged to Google Docs');
+            return 'Google Docs integration setup complete!';
+        };
+        
+        window.testGoogleDocsConnection = async function() {
+            const testData = {
+                type: 'test_connection',
+                timestamp: new Date().toISOString(),
+                sessionId: 'test_session',
+                data: { message: 'Testing Google Docs connection' },
+                metadata: {
+                    userAgent: navigator.userAgent,
+                    language: navigator.language,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+                }
+            };
+            
+            try {
+                const response = await fetch('YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(testData)
+                });
+                
+                const result = await response.json();
+                console.log('✅ Google Docs connection test result:', result);
+                return result;
+            } catch (error) {
+                console.error('❌ Google Docs connection test failed:', error);
+                return { success: false, error: error.message };
+            }
+        };
+        
+        window.exportToGoogleDocs = async function() {
+            const summary = aiLogger.getAnalyticsSummary();
+            const interactions = aiLogger.interactions;
+            
+            console.log('📄 Exporting to Google Docs...');
+            console.log(`📊 ${interactions.length} interactions to export`);
+            
+            // Send all interactions to Google Docs
+            for (const interaction of interactions) {
+                try {
+                    await aiLogger.sendToServer(interaction);
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Small delay to avoid rate limits
+                } catch (error) {
+                    console.error('Failed to export interaction:', error);
+                }
+            }
+            
+            console.log('✅ Export to Google Docs completed!');
+            return `Exported ${interactions.length} interactions to Google Docs`;
+        };
+
+        // Google Sheets API specific functions
+        window.testGoogleSheets = async function() {
+            const status = googleSheetsLogger.getStatus();
+            console.log('📊 Google Sheets Status:', status);
+            
+            if (!status.enabled) {
+                console.log('❌ Google Sheets not configured');
+                console.log('🔧 Please update GOOGLE_SHEETS_CONFIG with your API key and Sheet ID');
+                return { success: false, reason: 'not_configured', status };
+            }
+            
+            try {
+                const result = await googleSheetsLogger.getSheetData();
+                if (result.success) {
+                    console.log('✅ Google Sheets connection successful!');
+                    console.log(`📄 Found ${result.data.length} rows in sheet`);
+                    return { success: true, rowCount: result.data.length, status };
+                } else {
+                    console.error('❌ Google Sheets connection failed:', result.error);
+                    return { success: false, error: result.error, status };
+                }
+            } catch (error) {
+                console.error('❌ Google Sheets test error:', error);
+                return { success: false, error: error.message, status };
+            }
+        };
+
+        window.initializeGoogleSheets = async function() {
+            console.log('🔄 Initializing Google Sheets...');
+            const result = await googleSheetsLogger.initializeSheet();
+            
+            if (result) {
+                console.log('✅ Google Sheets initialized successfully');
+                return { success: true, message: 'Google Sheets headers set up' };
+            } else {
+                console.error('❌ Google Sheets initialization failed');
+                return { success: false, message: 'Failed to initialize Google Sheets' };
+            }
+        };
+
+        window.getGoogleSheetsAnalytics = async function() {
+            console.log('📊 Generating Google Sheets analytics...');
+            const result = await googleSheetsLogger.generateAnalyticsReport();
+            
+            if (result.success) {
+                console.log('✅ Google Sheets analytics:', result.analytics);
+                return result.analytics;
+            } else {
+                console.error('❌ Failed to get Google Sheets analytics:', result.error);
+                return null;
+            }
+        };
+
+        window.openGoogleSheet = function() {
+            const status = googleSheetsLogger.getStatus();
+            if (status.enabled && status.sheetId !== 'Not configured') {
+                const url = `https://docs.google.com/spreadsheets/d/${status.sheetId}/edit`;
+                window.open(url, '_blank');
+                console.log('📄 Opening Google Sheet:', url);
+            } else {
+                console.log('❌ Google Sheets not configured yet!');
+                alert('Google Sheets not configured. Please add your API key and Sheet ID.');
+            }
+        };
+
+        window.configureGoogleSheets = function(apiKey, sheetId) {
+            // Update configuration (note: this only works for current session)
+            GOOGLE_SHEETS_CONFIG.apiKey = apiKey;
+            GOOGLE_SHEETS_CONFIG.sheetId = sheetId;
+            
+            // Reinitialize logger
+            window.googleSheetsLogger = new GoogleSheetsLogger(GOOGLE_SHEETS_CONFIG);
+            
+            console.log('✅ Google Sheets configuration updated');
+            console.log('🔄 Please refresh the page to apply changes permanently');
+            
+            return { 
+                success: true, 
+                message: 'Configuration updated for current session. Edit the HTML file to make changes permanent.' 
+            };
+        };
 
         // Auto-resize input and handle Enter key
         messageInput.addEventListener('keypress', function(e) {
@@ -1107,6 +1559,14 @@
         // API Configuration - Updated to match n8n webhook
         const API_URL = 'https://d107-2405-4803-d738-6750-1ce0-1119-75b8-f333.ngrok-free.app';
         const WEBHOOK_ID = '9e86df65-9069-444d-ae7a-15a8f4676abb';
+        
+        // Google Sheets API Configuration
+        const GOOGLE_SHEETS_CONFIG = {
+            apiKey: 'AIzaSyA5KiOmApz57IJ7mIYZrQmlWfU-SvO95b0', // Your Google Sheets API key
+            sheetId: '1KCzDStpVM_7ndtLj6OMwC8DJA-gxnjOb6H1haVUIN3c', // Your Google Sheet ID
+            range: 'Sheet1!A:L', // Adjust range if needed
+            apiUrl: 'https://sheets.googleapis.com/v4/spreadsheets'
+        };
         
         // Alternative API methods to handle CORS issues
         async function sendMessageWithFallback(message, messageId, requestStartTime) {
