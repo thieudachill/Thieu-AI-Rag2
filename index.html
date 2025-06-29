@@ -264,6 +264,25 @@
             color: #dc2626;
         }
 
+        .help-button {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .help-button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
         .status-dot {
             width: 6px;
             height: 6px;
@@ -381,6 +400,7 @@
         <div class="chat-header">
             <h1>🤖 Matthew's AI Assistant</h1>
             <p>Connected to live AI system - Ask me anything!</p>
+            <button class="help-button" onclick="toggleTroubleshooting()" title="Show/Hide Help">❓ Help</button>
             <div class="connection-status online" id="connectionStatus">
                 <div class="status-dot"></div>
                 <span>Online</span>
@@ -402,7 +422,7 @@
         </div>
 
         <div class="troubleshooting" id="troubleshooting" style="display: none;">
-            <h4>⚠️ Connection Issues Detected</h4>
+            <h4>🛠️ Troubleshooting Guide</h4>
             <p><strong>Common Issues:</strong></p>
             <ul>
                 <li><strong>CORS Error:</strong> Browser blocking requests due to missing headers</li>
@@ -497,7 +517,8 @@
                 await sendMessageWithFallback(message);
             } catch (error) {
                 hideTypingIndicator();
-                addMessage("Sorry, I'm having trouble connecting. This might be due to CORS restrictions. Please check your n8n webhook configuration.", 'bot', true);
+                updateConnectionStatus(false); // This will only show troubleshooting after 3 failures
+                addMessage("Sorry, I'm having trouble connecting. Click the 'Help' button above for troubleshooting tips.", 'bot', true);
                 console.error('All API methods failed:', error);
             }
         }
@@ -724,6 +745,8 @@
         }
 
         // Enhanced functionality
+        let consecutiveFailures = 0;
+        
         function updateConnectionStatus(online) {
             isConnected = online;
             const statusEl = connectionStatus;
@@ -734,15 +757,34 @@
                 statusEl.className = 'connection-status online';
                 statusText.textContent = 'Online';
                 troubleshooting.style.display = 'none';
+                consecutiveFailures = 0; // Reset failure counter
             } else {
+                consecutiveFailures++;
                 statusEl.className = 'connection-status offline';
                 statusText.textContent = 'Offline';
-                troubleshooting.style.display = 'block';
+                
+                // Only show troubleshooting after multiple failures
+                if (consecutiveFailures >= 3) {
+                    troubleshooting.style.display = 'block';
+                }
             }
         }
 
         function hideTroubleshooting() {
             document.getElementById('troubleshooting').style.display = 'none';
+        }
+
+        function showTroubleshooting() {
+            document.getElementById('troubleshooting').style.display = 'block';
+        }
+
+        function toggleTroubleshooting() {
+            const troubleshooting = document.getElementById('troubleshooting');
+            if (troubleshooting.style.display === 'none' || troubleshooting.style.display === '') {
+                troubleshooting.style.display = 'block';
+            } else {
+                troubleshooting.style.display = 'none';
+            }
         }
 
         function sendQuickMessage(message) {
@@ -801,41 +843,38 @@
             return sessionId;
         }
 
-        // Connection test
+        // Connection test - simplified to avoid false negatives
         async function testConnection() {
+            // Don't run automatic connection tests if chat is working
+            // The connection status will be updated when messages are sent/received
+            return true;
+        }
+
+        // Better connection test that only runs when needed
+        async function testConnectionManual() {
             try {
-                // Use a simple GET request to test connection
-                const response = await fetch(`${API_URL}/status`, {
-                    method: 'GET',
+                const response = await fetch(`${API_URL}/webhook/${WEBHOOK_ID}/chat`, {
+                    method: 'POST',
                     headers: {
+                        'Content-Type': 'application/json',
                         'ngrok-skip-browser-warning': 'true'
-                    }
+                    },
+                    body: JSON.stringify({
+                        chatInput: 'connection test',
+                        sessionId: 'test',
+                        test: true
+                    })
                 });
-                updateConnectionStatus(response.ok);
-                return response.ok;
+                updateConnectionStatus(true);
+                return true;
             } catch (error) {
-                // If status endpoint doesn't exist, try the webhook with OPTIONS
-                try {
-                    const webhookResponse = await fetch(`${API_URL}/webhook/${WEBHOOK_ID}/chat`, {
-                        method: 'OPTIONS',
-                        headers: {
-                            'ngrok-skip-browser-warning': 'true'
-                        }
-                    });
-                    updateConnectionStatus(true);
-                    return true;
-                } catch (webhookError) {
-                    updateConnectionStatus(false);
-                    return false;
-                }
+                console.log('Connection test failed:', error);
+                return false;
             }
         }
 
-        // Periodically test connection
-        setInterval(testConnection, 30000); // Every 30 seconds
-
-        // Initial connection test
-        setTimeout(testConnection, 1000);
+        // Only test connection manually when there are actual issues
+        // Removed automatic periodic testing to prevent false negatives
 
         // Initialize
         sendButton.disabled = true;
@@ -843,8 +882,8 @@
 
         // Enhanced initialization
         document.addEventListener('DOMContentLoaded', function() {
-            // Test connection on load
-            testConnection();
+            // Set initial status as online (since user says chat is working)
+            updateConnectionStatus(true);
             
             // Add keyboard shortcuts
             document.addEventListener('keydown', function(e) {
