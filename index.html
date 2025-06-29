@@ -633,6 +633,8 @@
                     <button class="analytics-btn secondary" onclick="testGoogleSheets()">📊 Test Google Sheets</button>
                     <button class="analytics-btn secondary" onclick="initializeGoogleSheets()">🚀 Initialize Google Sheets</button>
                     <button class="analytics-btn secondary" onclick="openGoogleSheet()">📄 Open Google Sheet</button>
+                    <button class="analytics-btn secondary" onclick="troubleshootGoogleSheets()">🔧 Fix Google Sheets</button>
+                    <button class="analytics-btn secondary" onclick="troubleshootN8N()">🔧 Fix n8n Connection</button>
             </div>
 
             <div class="analytics-section">
@@ -893,14 +895,15 @@
                 // Execute all promises and log results
                 try {
                     const results = await Promise.allSettled(promises);
-                    results.forEach((result, index) => {
-                        const logResult = result.status === 'fulfilled' ? result.value : { name: 'Unknown', success: false, error: result.reason };
-                        if (logResult.success) {
-                            console.log(`✅ Logged to ${logResult.name}`);
-                        } else {
-                            console.log(`❌ Logging to ${logResult.name} failed:`, logResult.error);
-                        }
-                    });
+                                         results.forEach((result, index) => {
+                         const logResult = result.status === 'fulfilled' ? result.value : { name: 'Unknown', success: false, error: result.reason };
+                         if (logResult.success) {
+                             console.log(`✅ Logged to ${logResult.name}`);
+                         } else {
+                             // Use enhanced error logging for better troubleshooting
+                             logErrorWithSuggestions(new Error(logResult.error || 'Unknown error'), `Logging to ${logResult.name}`);
+                         }
+                     });
                 } catch (error) {
                     console.error('❌ Unexpected error in sendToServer:', error);
                 }
@@ -1056,25 +1059,42 @@
                 }
 
                 try {
+                    // First check if we can read the sheet (simpler permission)
+                    const readTest = await this.testSheetAccess();
+                    if (!readTest.success) {
+                        console.warn('📊 Google Sheets: Access test failed, trying append anyway...');
+                    }
+
                     // Format data for Google Sheets
                     const rowData = this.formatDataForSheet(data);
                     
-                    // Append to sheet using Google Sheets API
-                    const response = await fetch(
-                        `${this.config.apiUrl}/${this.config.sheetId}/values/${this.config.range}:append?valueInputOption=RAW&key=${this.config.apiKey}`,
-                        {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                values: [rowData]
-                            })
-                        }
-                    );
+                    // Append to sheet using Google Sheets API with better error handling
+                    const url = `${this.config.apiUrl}/${this.config.sheetId}/values/${this.config.range}:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS&key=${this.config.apiKey}`;
+                    
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            values: [rowData]
+                        })
+                    });
 
                     if (!response.ok) {
-                        throw new Error(`Google Sheets API error: ${response.status} ${response.statusText}`);
+                        const errorText = await response.text();
+                        
+                        // Provide specific error messages for common issues
+                        if (response.status === 401) {
+                            throw new Error(`Google Sheets API 401: API key lacks permission. Make sure your sheet is publicly viewable and your API key has Google Sheets API access. Error details: ${errorText}`);
+                        } else if (response.status === 403) {
+                            throw new Error(`Google Sheets API 403: Access forbidden. Check if sheet is shared properly and API key has correct restrictions. Error details: ${errorText}`);
+                        } else if (response.status === 404) {
+                            throw new Error(`Google Sheets API 404: Sheet not found. Check your sheet ID: ${this.config.sheetId}`);
+                        } else {
+                            throw new Error(`Google Sheets API error: ${response.status} ${response.statusText} - ${errorText}`);
+                        }
                     }
 
                     const result = await response.json();
@@ -1082,8 +1102,43 @@
                     return { success: true, result };
 
                 } catch (error) {
-                    console.error('❌ Google Sheets: Failed to log data', error);
+                    // Use enhanced error logging
+                    logErrorWithSuggestions(error, 'Google Sheets appendToSheet');
+                    
+                    // Try to log to local storage as fallback
+                    this.logToLocalStorageFallback(data);
+                    
                     return { success: false, error: error.message };
+                }
+            }
+
+            async testSheetAccess() {
+                try {
+                    const response = await fetch(
+                        `${this.config.apiUrl}/${this.config.sheetId}/values/A1:A1?key=${this.config.apiKey}`
+                    );
+                    return { success: response.ok, status: response.status };
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            }
+
+            logToLocalStorageFallback(data) {
+                try {
+                    const fallbackKey = 'google_sheets_fallback_log';
+                    const existing = JSON.parse(localStorage.getItem(fallbackKey) || '[]');
+                    existing.push({
+                        ...data,
+                        fallback_timestamp: new Date().toISOString()
+                    });
+                    
+                    // Keep only last 100 entries to avoid storage bloat
+                    const limited = existing.slice(-100);
+                    localStorage.setItem(fallbackKey, JSON.stringify(limited));
+                    
+                    console.log('💾 Google Sheets: Data saved to local storage fallback');
+                } catch (error) {
+                    console.error('❌ Failed to save to local storage fallback:', error);
                 }
             }
 
@@ -1470,6 +1525,133 @@
                 message: 'Configuration updated for current session. Edit the HTML file to make changes permanent.' 
             };
         };
+
+        // Google Sheets troubleshooting functions
+        window.troubleshootGoogleSheets = async function() {
+            console.log('🔍 Running Google Sheets diagnostics...');
+            
+            const status = googleSheetsLogger.getStatus();
+            const diagnostics = {
+                configuration: status,
+                apiKeyValid: false,
+                sheetAccessible: false,
+                sheetWritable: false,
+                recommendations: []
+            };
+            
+            console.log('📋 Configuration Status:', status);
+            
+            if (!status.enabled) {
+                diagnostics.recommendations.push('❌ Configure API key and Sheet ID');
+                return diagnostics;
+            }
+            
+            try {
+                // Test API key validity
+                const testResponse = await fetch(
+                    `https://sheets.googleapis.com/v4/spreadsheets/${GOOGLE_SHEETS_CONFIG.sheetId}?key=${GOOGLE_SHEETS_CONFIG.apiKey}`
+                );
+                
+                if (testResponse.ok) {
+                    diagnostics.apiKeyValid = true;
+                    diagnostics.sheetAccessible = true;
+                    console.log('✅ API key valid and sheet accessible');
+                } else {
+                    const errorText = await testResponse.text();
+                    console.error('❌ API access failed:', testResponse.status, errorText);
+                    
+                    if (testResponse.status === 401) {
+                        diagnostics.recommendations.push('❌ API key invalid or lacks Google Sheets API access');
+                        diagnostics.recommendations.push('🔧 Check: Google Cloud Console → APIs & Services → Credentials');
+                    } else if (testResponse.status === 403) {
+                        diagnostics.recommendations.push('❌ Sheet access forbidden');
+                        diagnostics.recommendations.push('🔧 Make sheet publicly viewable: Share → Anyone with link can view');
+                    } else if (testResponse.status === 404) {
+                        diagnostics.recommendations.push('❌ Sheet not found - check Sheet ID');
+                    }
+                }
+                
+                // Test write permissions
+                if (diagnostics.sheetAccessible) {
+                    const writeTest = await googleSheetsLogger.appendToSheet({
+                        type: 'connection_test',
+                        timestamp: new Date().toISOString(),
+                        sessionId: 'test_session',
+                        data: { message: 'Connection test' },
+                        metadata: { test: true }
+                    });
+                    
+                    if (writeTest.success) {
+                        diagnostics.sheetWritable = true;
+                        console.log('✅ Sheet is writable');
+                        diagnostics.recommendations.push('✅ All tests passed! Google Sheets integration working');
+                    } else {
+                        console.error('❌ Sheet write test failed:', writeTest.error);
+                        diagnostics.recommendations.push('❌ Sheet not writable: ' + writeTest.error);
+                    }
+                }
+                
+            } catch (error) {
+                console.error('❌ Diagnostics failed:', error);
+                diagnostics.recommendations.push('❌ Network error: ' + error.message);
+            }
+            
+            console.log('📊 Diagnostics Complete:', diagnostics);
+            return diagnostics;
+        };
+
+        window.fixGoogleSheetsPermissions = function() {
+            console.log('🔧 Google Sheets Permissions Fix Guide:');
+            console.log('');
+            console.log('1. 📄 Make sure your Google Sheet is publicly accessible:');
+            console.log('   → Open your sheet: https://docs.google.com/spreadsheets/d/' + GOOGLE_SHEETS_CONFIG.sheetId + '/edit');
+            console.log('   → Click "Share" button');
+            console.log('   → Change to "Anyone with the link can view"');
+            console.log('');
+            console.log('2. 🔑 Check your API key permissions:');
+            console.log('   → Go to: https://console.cloud.google.com/apis/credentials');
+            console.log('   → Find your API key: ' + GOOGLE_SHEETS_CONFIG.apiKey.substring(0, 20) + '...');
+            console.log('   → Click "Edit" → API restrictions → Make sure "Google Sheets API" is enabled');
+            console.log('');
+            console.log('3. 🔄 Test the fix:');
+            console.log('   → Run: await troubleshootGoogleSheets()');
+            
+            // Auto-open the sheet
+            window.open('https://docs.google.com/spreadsheets/d/' + GOOGLE_SHEETS_CONFIG.sheetId + '/edit', '_blank');
+        };
+
+        // Enhanced n8n error handling
+        window.troubleshootN8N = function() {
+            console.log('🔍 n8n Connection Troubleshooting:');
+            console.log('');
+            console.log('Current n8n endpoint:', API_URL + '/webhook/' + WEBHOOK_ID + '/chat');
+            console.log('');
+            console.log('Common issues:');
+            console.log('❌ ngrok tunnel expired - Check if ngrok is still running');
+            console.log('❌ CORS policy - n8n webhook might need CORS headers');
+            console.log('❌ Network connectivity - Check internet connection');
+            console.log('');
+            console.log('Quick tests:');
+            console.log('1. Test ngrok tunnel: curl ' + API_URL);
+            console.log('2. Test webhook directly in browser: ' + API_URL + '/webhook/' + WEBHOOK_ID + '/chat');
+            console.log('3. Check n8n workflow is active and saved');
+        };
+
+        // Enhanced error logging with recovery suggestions
+        function logErrorWithSuggestions(error, context) {
+            console.error(`❌ Error in ${context}:`, error);
+            
+            if (error.message.includes('Failed to fetch')) {
+                console.log('💡 Suggestion: Check network connection or ngrok tunnel');
+                console.log('🔧 Run: troubleshootN8N() for more help');
+            } else if (error.message.includes('401') && context.includes('Google Sheets')) {
+                console.log('💡 Suggestion: Google Sheets API permission issue');
+                console.log('🔧 Run: fixGoogleSheetsPermissions() for step-by-step fix');
+            } else if (error.message.includes('CORS')) {
+                console.log('💡 Suggestion: CORS policy blocking request');
+                console.log('🔧 Add CORS headers to your n8n webhook response');
+            }
+        }
 
         // Auto-resize input and handle Enter key
         messageInput.addEventListener('keypress', function(e) {
