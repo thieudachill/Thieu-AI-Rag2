@@ -630,11 +630,11 @@
                                     <button class="analytics-btn primary" onclick="refreshAnalytics()">🔄 Refresh</button>
                     <button class="analytics-btn secondary" onclick="exportAnalytics()">📤 Export JSON</button>
                     <button class="analytics-btn secondary" onclick="exportToGoogleDocs()">📄 Export to Google Docs</button>
-                    <button class="analytics-btn secondary" onclick="testGoogleSheets()">📊 Test Google Sheets</button>
-                    <button class="analytics-btn secondary" onclick="initializeGoogleSheets()">🚀 Initialize Google Sheets</button>
+                    <button class="analytics-btn secondary" onclick="testGoogleAppsScript()">📊 Test Google Apps Script</button>
                     <button class="analytics-btn secondary" onclick="openGoogleSheet()">📄 Open Google Sheet</button>
                     <button class="analytics-btn secondary" onclick="troubleshootGoogleSheets()">🔧 Fix Google Sheets</button>
                     <button class="analytics-btn secondary" onclick="troubleshootN8N()">🔧 Fix n8n Connection</button>
+                    <button class="analytics-btn secondary" onclick="showGoogleAppsScriptSetup()">⚙️ Setup Google Apps Script</button>
             </div>
 
             <div class="analytics-section">
@@ -852,16 +852,18 @@
             }
 
             async sendToServer(interaction) {
-                // Send to multiple endpoints including Google Sheets
+                // Send to multiple endpoints including Google Apps Script
                 const promises = [];
                 
-                // 1. Google Sheets API (direct integration)
-                if (googleSheetsLogger.isEnabled) {
+                // 1. Google Apps Script (Primary - replaces direct Sheets API)
+                if (googleAppsScriptLogger.isEnabled) {
                     promises.push(
-                        googleSheetsLogger.appendToSheet(interaction)
-                            .then(result => ({ name: 'Google Sheets API', success: result.success, result }))
-                            .catch(error => ({ name: 'Google Sheets API', success: false, error }))
+                        googleAppsScriptLogger.logToSheet(interaction)
+                            .then(result => ({ name: 'Google Apps Script', success: result.success, result }))
+                            .catch(error => ({ name: 'Google Apps Script', success: false, error }))
                     );
+                } else {
+                    console.log('📊 Google Apps Script: Not configured - skipping sheet logging');
                 }
                 
                 // 2. n8n Logging endpoint (if available)
@@ -1042,7 +1044,94 @@
             }
         }
 
-        // Google Sheets API Integration Class
+        // Google Apps Script Integration Class (Primary Method)
+        class GoogleAppsScriptLogger {
+            constructor(config) {
+                this.config = config;
+                this.isEnabled = config.webAppUrl && 
+                                config.webAppUrl !== 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
+                console.log('📊 Google Apps Script Logger:', this.isEnabled ? 'Enabled' : 'Disabled (configure Web App URL)');
+            }
+
+            async logToSheet(data) {
+                if (!this.isEnabled) {
+                    console.log('📊 Google Apps Script: Not configured, skipping...');
+                    return { success: false, reason: 'not_configured' };
+                }
+
+                try {
+                    const response = await fetch(this.config.webAppUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Google Apps Script error: ${response.status} ${response.statusText}`);
+                    }
+
+                    const result = await response.json();
+                    if (result.success) {
+                        console.log('✅ Google Apps Script: Data logged successfully');
+                        return { success: true, result };
+                    } else {
+                        throw new Error(result.error || 'Unknown error from Google Apps Script');
+                    }
+
+                } catch (error) {
+                    console.error('❌ Google Apps Script: Failed to log data', error);
+                    return { success: false, error: error.message };
+                }
+            }
+
+            async testConnection() {
+                if (!this.isEnabled) {
+                    return { success: false, reason: 'not_configured' };
+                }
+
+                const testData = {
+                    type: 'connection_test',
+                    timestamp: new Date().toISOString(),
+                    sessionId: 'test_session',
+                    data: { message: 'Connection test from web app' },
+                    metadata: {
+                        userAgent: navigator.userAgent,
+                        language: navigator.language,
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        test: true
+                    }
+                };
+
+                try {
+                    const result = await this.logToSheet(testData);
+                    return result;
+                } catch (error) {
+                    return { success: false, error: error.message };
+                }
+            }
+
+            getStatus() {
+                return {
+                    enabled: this.isEnabled,
+                    configured: this.config.webAppUrl !== 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE',
+                    webAppUrl: this.isEnabled ? this.config.webAppUrl : 'Not configured',
+                    sheetId: this.config.sheetId
+                };
+            }
+
+            openSheet() {
+                if (this.config.sheetId) {
+                    const url = `https://docs.google.com/spreadsheets/d/${this.config.sheetId}/edit`;
+                    window.open(url, '_blank');
+                    return url;
+                }
+                return null;
+            }
+        }
+
+        // Legacy Google Sheets API Integration Class (Disabled)
         class GoogleSheetsLogger {
             constructor(config) {
                 this.config = config;
@@ -1359,19 +1448,30 @@
         const API_URL = 'https://d107-2405-4803-d738-6750-1ce0-1119-75b8-f333.ngrok-free.app';
         const WEBHOOK_ID = '9e86df65-9069-444d-ae7a-15a8f4676abb';
         
-        // Google Sheets API Configuration
+        // Google Apps Script Configuration (replaces direct Sheets API)
+        const GOOGLE_APPS_SCRIPT_CONFIG = {
+            webAppUrl: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE', // Replace with your deployed script URL
+            sheetId: '1KCzDStpVM_7ndtLj6OMwC8DJA-gxnjOb6H1haVUIN3c', // Your Google Sheet ID
+            enabled: false // Will be true when webAppUrl is configured
+        };
+        
+        // Legacy Google Sheets API Configuration (disabled due to auth changes)
         const GOOGLE_SHEETS_CONFIG = {
             apiKey: 'AIzaSyA5KiOmApz57IJ7mIYZrQmlWfU-SvO95b0', // Your Google Sheets API key
             sheetId: '1KCzDStpVM_7ndtLj6OMwC8DJA-gxnjOb6H1haVUIN3c', // Your Google Sheet ID
             range: 'Sheet1!A:L', // Adjust range if needed
-            apiUrl: 'https://sheets.googleapis.com/v4/spreadsheets'
+            apiUrl: 'https://sheets.googleapis.com/v4/spreadsheets',
+            enabled: false // Disabled - Google changed API requirements
         };
 
         // Initialize variables
         let lastUserMessage = '';
         let consecutiveFailures = 0;
 
-        // Initialize Google Sheets Logger
+        // Initialize Google Apps Script Logger (Primary)
+        const googleAppsScriptLogger = new GoogleAppsScriptLogger(GOOGLE_APPS_SCRIPT_CONFIG);
+        
+        // Initialize Google Sheets Logger (Legacy - Disabled)
         const googleSheetsLogger = new GoogleSheetsLogger(GOOGLE_SHEETS_CONFIG);
 
         // Initialize AI Logger
@@ -1379,7 +1479,8 @@
         
         // Make loggers globally accessible for console debugging
         window.aiLogger = aiLogger;
-        window.googleSheetsLogger = googleSheetsLogger;
+        window.googleAppsScriptLogger = googleAppsScriptLogger;
+        window.googleSheetsLogger = googleSheetsLogger; // Legacy
         window.getAnalytics = () => aiLogger.getAnalyticsSummary();
         window.exportAnalytics = () => aiLogger.exportData();
         window.viewDashboard = () => console.table(aiLogger.getRealtimeDashboard());
@@ -1444,31 +1545,38 @@
             return `Exported ${interactions.length} interactions to Google Docs`;
         };
 
-        // Google Sheets API specific functions
-        window.testGoogleSheets = async function() {
-            const status = googleSheetsLogger.getStatus();
-            console.log('📊 Google Sheets Status:', status);
+        // Google Apps Script specific functions
+        window.testGoogleAppsScript = async function() {
+            const status = googleAppsScriptLogger.getStatus();
+            console.log('📊 Google Apps Script Status:', status);
             
             if (!status.enabled) {
-                console.log('❌ Google Sheets not configured');
-                console.log('🔧 Please update GOOGLE_SHEETS_CONFIG with your API key and Sheet ID');
+                console.log('❌ Google Apps Script not configured');
+                console.log('🔧 Please deploy your Google Apps Script and update the Web App URL');
                 return { success: false, reason: 'not_configured', status };
             }
             
             try {
-                const result = await googleSheetsLogger.getSheetData();
+                const result = await googleAppsScriptLogger.testConnection();
                 if (result.success) {
-                    console.log('✅ Google Sheets connection successful!');
-                    console.log(`📄 Found ${result.data.length} rows in sheet`);
-                    return { success: true, rowCount: result.data.length, status };
+                    console.log('✅ Google Apps Script connection successful!');
+                    console.log('📄 Test data sent to Google Sheet');
+                    return { success: true, result, status };
                 } else {
-                    console.error('❌ Google Sheets connection failed:', result.error);
+                    console.error('❌ Google Apps Script connection failed:', result.error);
                     return { success: false, error: result.error, status };
                 }
             } catch (error) {
-                console.error('❌ Google Sheets test error:', error);
+                console.error('❌ Google Apps Script test error:', error);
                 return { success: false, error: error.message, status };
             }
+        };
+
+        // Legacy Google Sheets API test function (kept for compatibility)
+        window.testGoogleSheets = async function() {
+            console.log('⚠️ Direct Google Sheets API is disabled due to authentication changes.');
+            console.log('✅ Use Google Apps Script instead: testGoogleAppsScript()');
+            return await testGoogleAppsScript();
         };
 
         window.initializeGoogleSheets = async function() {
@@ -1498,15 +1606,34 @@
         };
 
         window.openGoogleSheet = function() {
-            const status = googleSheetsLogger.getStatus();
-            if (status.enabled && status.sheetId !== 'Not configured') {
-                const url = `https://docs.google.com/spreadsheets/d/${status.sheetId}/edit`;
-                window.open(url, '_blank');
+            const url = googleAppsScriptLogger.openSheet();
+            if (url) {
                 console.log('📄 Opening Google Sheet:', url);
+                return url;
             } else {
-                console.log('❌ Google Sheets not configured yet!');
-                alert('Google Sheets not configured. Please add your API key and Sheet ID.');
+                console.log('❌ Google Sheet ID not configured!');
+                alert('Google Sheet ID not found in configuration.');
+                return null;
             }
+        };
+
+        window.configureGoogleAppsScript = function(webAppUrl) {
+            // Update configuration (note: this only works for current session)
+            GOOGLE_APPS_SCRIPT_CONFIG.webAppUrl = webAppUrl;
+            GOOGLE_APPS_SCRIPT_CONFIG.enabled = true;
+            
+            // Reinitialize logger
+            window.googleAppsScriptLogger = new GoogleAppsScriptLogger(GOOGLE_APPS_SCRIPT_CONFIG);
+            
+            console.log('✅ Google Apps Script configuration updated');
+            console.log('🔄 Please refresh the page to apply changes permanently');
+            console.log('🧪 Test with: await testGoogleAppsScript()');
+            
+            return { 
+                success: true, 
+                message: 'Configuration updated for current session. Edit the HTML file to make changes permanent.',
+                testCommand: 'await testGoogleAppsScript()'
+            };
         };
 
         window.configureGoogleSheets = function(apiKey, sheetId) {
@@ -1645,13 +1772,156 @@
                 console.log('💡 Suggestion: Check network connection or ngrok tunnel');
                 console.log('🔧 Run: troubleshootN8N() for more help');
             } else if (error.message.includes('401') && context.includes('Google Sheets')) {
-                console.log('💡 Suggestion: Google Sheets API permission issue');
-                console.log('🔧 Run: fixGoogleSheetsPermissions() for step-by-step fix');
+                console.log('💡 Suggestion: Google changed API requirements - use Google Apps Script instead');
+                console.log('🔧 Run: showGoogleAppsScriptSetup() for step-by-step setup');
             } else if (error.message.includes('CORS')) {
                 console.log('💡 Suggestion: CORS policy blocking request');
                 console.log('🔧 Add CORS headers to your n8n webhook response');
             }
         }
+
+        // Google Apps Script setup instructions
+        window.showGoogleAppsScriptSetup = function() {
+            console.log('📋 Google Apps Script Setup Instructions:');
+            console.log('');
+            console.log('🔥 PROBLEM: Google changed their API - direct Sheets API no longer works with API keys');
+            console.log('✅ SOLUTION: Use Google Apps Script as a proxy to write to your sheet');
+            console.log('');
+            console.log('📝 STEP-BY-STEP SETUP:');
+            console.log('');
+            console.log('1. 📄 Go to: https://script.google.com');
+            console.log('2. 🆕 Click "New Project"');
+            console.log('3. 📋 Replace all code with the script provided in the console below');
+            console.log('4. 💾 Save project (Ctrl+S) - name it "Matthew AI Chat Logger"');
+            console.log('5. 🚀 Click Deploy → New Deployment');
+            console.log('6. ⚙️ Choose type: Web app');
+            console.log('7. 🔐 Execute as: Me, Who has access: Anyone');
+            console.log('8. 📋 Copy the Web App URL');
+            console.log('9. 🔧 Run: configureGoogleAppsScript("YOUR_WEB_APP_URL_HERE")');
+            console.log('10. 🧪 Test with: await testGoogleAppsScript()');
+            console.log('');
+            console.log('📋 HERE IS THE GOOGLE APPS SCRIPT CODE:');
+            console.log('=====================================');
+            
+            const scriptCode = `
+/**
+ * Google Apps Script Proxy for Matthew AI Chat Analytics
+ */
+const SHEET_ID = '${GOOGLE_APPS_SCRIPT_CONFIG.sheetId}';
+const SHEET_NAME = 'Sheet1';
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const result = writeToSheet(data);
+    
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: true,
+        message: 'Data logged successfully',
+        timestamp: new Date().toISOString(),
+        result: result
+      }))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeaders({
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      });
+      
+  } catch (error) {
+    return ContentService
+      .createTextOutput(JSON.stringify({
+        success: false,
+        error: error.toString(),
+        timestamp: new Date().toISOString()
+      }))
+      .setMimeType(ContentService.MimeType.JSON)
+      .setHeaders({'Access-Control-Allow-Origin': '*'});
+  }
+}
+
+function doOptions(e) {
+  return ContentService
+    .createTextOutput('')
+    .setHeaders({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type'
+    });
+}
+
+function writeToSheet(data) {
+  const spreadsheet = SpreadsheetApp.openById(SHEET_ID);
+  let sheet = spreadsheet.getSheetByName(SHEET_NAME);
+  
+  if (!sheet) {
+    sheet = spreadsheet.insertSheet(SHEET_NAME);
+    sheet.getRange(1, 1, 1, 12).setValues([[
+      'Timestamp', 'Session ID', 'Type', 'Message/Response', 
+      'Response Time (ms)', 'Message Length', 'User Agent', 'Language',
+      'Timezone', 'Error', 'Context', 'Metadata'
+    ]]);
+  }
+  
+  const timestamp = new Date(data.timestamp).toLocaleString();
+  const sessionId = data.sessionId || '';
+  const type = data.type || '';
+  
+  let message = '';
+  let responseTime = '';
+  let messageLength = '';
+  let error = '';
+  let context = '';
+  
+  switch(data.type) {
+    case 'user_message':
+      message = data.data.message || '';
+      messageLength = data.data.messageLength || '';
+      break;
+    case 'ai_response':
+      message = data.data.response || '';
+      responseTime = data.data.responseTime || '';
+      messageLength = data.data.responseLength || '';
+      break;
+    case 'error':
+      error = data.data.error || '';
+      context = data.data.context || '';
+      break;
+    case 'quick_action':
+      message = data.data.action || '';
+      break;
+    default:
+      message = JSON.stringify(data.data);
+  }
+  
+  const rowData = [
+    timestamp, sessionId, type, message, responseTime, messageLength,
+    data.metadata?.userAgent || '', data.metadata?.language || '',
+    data.metadata?.timezone || '', error, context,
+    JSON.stringify(data.metadata || {})
+  ];
+  
+  sheet.appendRow(rowData);
+  return { row: sheet.getLastRow(), data: rowData };
+}`;
+            
+            console.log(scriptCode);
+            console.log('=====================================');
+            console.log('');
+            console.log('💡 TIP: Copy the code above and paste it into Google Apps Script');
+            console.log('🔗 Quick link to Google Apps Script: https://script.google.com');
+            console.log('📊 Your Sheet: https://docs.google.com/spreadsheets/d/' + GOOGLE_APPS_SCRIPT_CONFIG.sheetId + '/edit');
+            
+            // Open relevant URLs
+            window.open('https://script.google.com', '_blank');
+            
+            return {
+                instructions: 'See console for full setup instructions',
+                scriptCode: scriptCode,
+                sheetUrl: 'https://docs.google.com/spreadsheets/d/' + GOOGLE_APPS_SCRIPT_CONFIG.sheetId + '/edit'
+            };
+        };
 
         // Auto-resize input and handle Enter key
         messageInput.addEventListener('keypress', function(e) {
