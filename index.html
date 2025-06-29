@@ -351,6 +351,29 @@
             font-size: 14px;
             line-height: 1.4;
         }
+
+        .troubleshooting {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 20px;
+            font-size: 12px;
+            color: #856404;
+        }
+
+        .troubleshooting h4 {
+            margin: 0 0 8px 0;
+            color: #856404;
+        }
+
+        .troubleshooting ul {
+            margin: 8px 0 0 16px;
+        }
+
+        .troubleshooting li {
+            margin-bottom: 4px;
+        }
     </style>
 </head>
 <body>
@@ -376,6 +399,30 @@
             <button class="quick-action-btn" onclick="sendQuickMessage('What projects has he worked on?')">Projects</button>
             <button class="quick-action-btn" onclick="sendQuickMessage('What are his technical skills?')">Skills</button>
             <button class="quick-action-btn" onclick="sendQuickMessage('How can I contact him?')">Contact</button>
+        </div>
+
+        <div class="troubleshooting" id="troubleshooting" style="display: none;">
+            <h4>⚠️ Connection Issues Detected</h4>
+            <p><strong>Common Issues:</strong></p>
+            <ul>
+                <li><strong>CORS Error:</strong> Browser blocking requests due to missing headers</li>
+                <li><strong>500 Error:</strong> n8n webhook configuration or execution issue</li>
+                <li><strong>Network Error:</strong> ngrok tunnel may be down</li>
+            </ul>
+            <p><strong>Quick Fixes:</strong></p>
+            <ul>
+                <li>✅ Check n8n workflow is active and saved</li>
+                <li>✅ Verify webhook URL matches exactly</li>
+                <li>✅ Test webhook directly in n8n with test data</li>
+                <li>✅ Restart ngrok tunnel if needed</li>
+            </ul>
+            <p><strong>For CORS issues, add this to your n8n HTTP Response node:</strong></p>
+            <pre style="background: #f5f5f5; padding: 8px; border-radius: 4px; font-size: 10px; margin: 8px 0;">{
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type"
+}</pre>
+            <button onclick="hideTroubleshooting()" style="background: #856404; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px;">Hide</button>
         </div>
         
         <div class="typing-indicator" id="typingIndicator">
@@ -445,13 +492,13 @@
             // Show typing indicator
             showTypingIndicator();
 
-            // Make actual API call to your ngrok endpoint
+            // Make actual API call to your ngrok endpoint with fallback methods
             try {
-                await sendMessageToAPI(message);
+                await sendMessageWithFallback(message);
             } catch (error) {
                 hideTypingIndicator();
-                addMessage("Sorry, I'm having trouble connecting. Please try again.", 'bot', true);
-                console.error('API call failed:', error);
+                addMessage("Sorry, I'm having trouble connecting. This might be due to CORS restrictions. Please check your n8n webhook configuration.", 'bot', true);
+                console.error('All API methods failed:', error);
             }
         }
 
@@ -505,39 +552,152 @@
         const API_URL = 'https://d107-2405-4803-d738-6750-1ce0-1119-75b8-f333.ngrok-free.app';
         const WEBHOOK_ID = '9e86df65-9069-444d-ae7a-15a8f4676abb';
         
+        // Alternative API methods to handle CORS issues
+        async function sendMessageWithFallback(message) {
+            // Try different approaches in order of preference
+            const methods = [
+                () => sendMessageToAPI(message),
+                () => sendMessageViaForm(message),
+                () => sendMessageViaJsonp(message)
+            ];
+            
+            for (let i = 0; i < methods.length; i++) {
+                try {
+                    await methods[i]();
+                    return; // Success, exit
+                } catch (error) {
+                    console.log(`Method ${i + 1} failed:`, error);
+                    if (i === methods.length - 1) {
+                        throw error; // Last method failed, throw error
+                    }
+                }
+            }
+        }
+        
+        // Form-based submission to avoid CORS
+        async function sendMessageViaForm(message) {
+            const form = new FormData();
+            form.append('chatInput', message);
+            form.append('sessionId', getSessionId());
+            form.append('timestamp', new Date().toISOString());
+            
+            const response = await fetch(`${API_URL}/webhook/${WEBHOOK_ID}/chat`, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: {
+                    'ngrok-skip-browser-warning': 'true'
+                },
+                body: form
+            });
+            
+            // Note: With no-cors mode, we can't read the response
+            hideTypingIndicator();
+            addMessage("Message sent! (Response may not be visible due to CORS restrictions)", 'bot');
+            updateConnectionStatus(true);
+        }
+        
+        // JSONP fallback (if supported by your n8n webhook)
+        async function sendMessageViaJsonp(message) {
+            return new Promise((resolve, reject) => {
+                const callbackName = 'jsonp_callback_' + Math.random().toString(36).substr(2, 9);
+                const script = document.createElement('script');
+                const timeoutId = setTimeout(() => {
+                    cleanup();
+                    reject(new Error('JSONP timeout'));
+                }, 10000);
+                
+                function cleanup() {
+                    clearTimeout(timeoutId);
+                    document.head.removeChild(script);
+                    delete window[callbackName];
+                }
+                
+                window[callbackName] = function(data) {
+                    cleanup();
+                    hideTypingIndicator();
+                    const botResponse = data.output || data.response || data.message || "JSONP response received!";
+                    addMessage(botResponse, 'bot');
+                    updateConnectionStatus(true);
+                    resolve(data);
+                };
+                
+                const params = new URLSearchParams({
+                    chatInput: message,
+                    sessionId: getSessionId(),
+                    callback: callbackName,
+                    timestamp: new Date().toISOString()
+                });
+                
+                script.src = `${API_URL}/webhook/${WEBHOOK_ID}/chat?${params}`;
+                script.onerror = () => {
+                    cleanup();
+                    reject(new Error('JSONP script loading failed'));
+                };
+                
+                document.head.appendChild(script);
+            });
+        }
+        
         async function sendMessageToAPI(message) {
+            const requestUrl = `${API_URL}/webhook/${WEBHOOK_ID}/chat`;
+            const requestData = {
+                chatInput: message,
+                sessionId: getSessionId(),
+                timestamp: new Date().toISOString()
+            };
+            
+            console.log('🚀 Sending request to:', requestUrl);
+            console.log('📤 Request data:', requestData);
+            
             try {
-                const response = await fetch(`${API_URL}/webhook/${WEBHOOK_ID}/chat`, {
+                const response = await fetch(requestUrl, {
                     method: 'POST',
+                    mode: 'cors',
                     headers: {
                         'Content-Type': 'application/json',
-                        'ngrok-skip-browser-warning': 'true'
+                        'Accept': 'application/json',
+                        'ngrok-skip-browser-warning': 'true',
+                        'Access-Control-Allow-Origin': '*'
                     },
-                    body: JSON.stringify({
-                        message: message,
-                        timestamp: new Date().toISOString()
-                    })
+                    body: JSON.stringify(requestData)
                 });
 
+                console.log('📥 Response status:', response.status, response.statusText);
+                console.log('📥 Response headers:', Object.fromEntries(response.headers.entries()));
+
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const errorText = await response.text();
+                    console.error('❌ Error response body:', errorText);
+                    throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
                 }
 
                 const data = await response.json();
+                console.log('✅ Response data:', data);
                 hideTypingIndicator();
                 
-                // Handle the response from your API
-                const botResponse = data.response || data.message || data.text || data.answer || "I received your message!";
+                // Handle the response from your API - try multiple possible response fields
+                const botResponse = data.output || data.response || data.message || data.text || data.answer || data.chatOutput || "I received your message!";
                 addMessage(botResponse, 'bot');
                 updateConnectionStatus(true);
                 
             } catch (error) {
-                console.error('API call failed:', error);
+                console.error('❌ API call failed:', error);
                 hideTypingIndicator();
                 updateConnectionStatus(false);
                 
-                // Add error message with retry option
-                addMessage("Sorry, I'm having trouble connecting to the server. Please check your connection and try again.", 'bot', true);
+                // Provide detailed error information
+                let errorMessage = 'Connection failed: ';
+                if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+                    errorMessage += 'Network error or CORS issue. Check browser console for details.';
+                } else if (error.message.includes('500')) {
+                    errorMessage += 'Server error (500). Check your n8n workflow configuration.';
+                } else if (error.message.includes('404')) {
+                    errorMessage += 'Webhook not found (404). Verify your webhook URL.';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                addMessage(errorMessage, 'bot', true);
             }
         }
 
@@ -568,14 +728,21 @@
             isConnected = online;
             const statusEl = connectionStatus;
             const statusText = statusEl.querySelector('span');
+            const troubleshooting = document.getElementById('troubleshooting');
             
             if (online) {
                 statusEl.className = 'connection-status online';
                 statusText.textContent = 'Online';
+                troubleshooting.style.display = 'none';
             } else {
                 statusEl.className = 'connection-status offline';
                 statusText.textContent = 'Offline';
+                troubleshooting.style.display = 'block';
             }
+        }
+
+        function hideTroubleshooting() {
+            document.getElementById('troubleshooting').style.display = 'none';
         }
 
         function sendQuickMessage(message) {
@@ -624,11 +791,22 @@
                 .replace(/\n/g, '<br>');
         }
 
+        // Session management
+        function getSessionId() {
+            let sessionId = sessionStorage.getItem('chatSessionId');
+            if (!sessionId) {
+                sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                sessionStorage.setItem('chatSessionId', sessionId);
+            }
+            return sessionId;
+        }
+
         // Connection test
         async function testConnection() {
             try {
-                const response = await fetch(`${API_URL}/webhook/${WEBHOOK_ID}/chat`, {
-                    method: 'HEAD',
+                // Use a simple GET request to test connection
+                const response = await fetch(`${API_URL}/status`, {
+                    method: 'GET',
                     headers: {
                         'ngrok-skip-browser-warning': 'true'
                     }
@@ -636,8 +814,20 @@
                 updateConnectionStatus(response.ok);
                 return response.ok;
             } catch (error) {
-                updateConnectionStatus(false);
-                return false;
+                // If status endpoint doesn't exist, try the webhook with OPTIONS
+                try {
+                    const webhookResponse = await fetch(`${API_URL}/webhook/${WEBHOOK_ID}/chat`, {
+                        method: 'OPTIONS',
+                        headers: {
+                            'ngrok-skip-browser-warning': 'true'
+                        }
+                    });
+                    updateConnectionStatus(true);
+                    return true;
+                } catch (webhookError) {
+                    updateConnectionStatus(false);
+                    return false;
+                }
             }
         }
 
