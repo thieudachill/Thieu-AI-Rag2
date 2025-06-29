@@ -579,7 +579,8 @@
             <h1>Hi! I am Thew, Matthew's AI friend</h1>
             <p>Curious about Matthew? - Ask me anything!</p>
             <button class="help-button" onclick="toggleTroubleshooting()" title="Show/Hide Help">❓ Help</button>
-            <button class="help-button" onclick="toggleAnalytics()" title="View Analytics" style="left: 70px;">📊 Analytics</button>
+            <!-- Analytics button hidden for production -->
+            <!-- <button class="help-button" onclick="toggleAnalytics()" title="View Analytics" style="left: 70px;">📊 Analytics</button> -->
             <div class="connection-status online" id="connectionStatus">
                 <div class="status-dot"></div>
                 <span>Online</span>
@@ -3109,11 +3110,11 @@ function writeToSheet(data) {
                     retryLastMessage();
                 }
                 
-                // Ctrl/Cmd + Shift + A to open analytics
-                if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
-                    e.preventDefault();
-                    toggleAnalytics();
-                }
+                // Analytics keyboard shortcut disabled for production
+                // if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
+                //     e.preventDefault();
+                //     toggleAnalytics();
+                // }
             });
             
             // Auto-focus input when clicking in chat area
