@@ -1450,9 +1450,9 @@
         
         // Google Apps Script Configuration (replaces direct Sheets API)
         const GOOGLE_APPS_SCRIPT_CONFIG = {
-            webAppUrl: 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE', // Replace with your deployed script URL
+            webAppUrl: 'https://script.google.com/macros/s/AKfycbz0-zeaXh0urlU7bKua5P5EPgkCg7blEm7K1WhhHeEFhfJD21kqUj5n6Vc_B7b1LKSR/exec', // Your deployed Google Apps Script URL
             sheetId: '1KCzDStpVM_7ndtLj6OMwC8DJA-gxnjOb6H1haVUIN3c', // Your Google Sheet ID
-            enabled: false // Will be true when webAppUrl is configured
+            enabled: true // Now configured and enabled!
         };
         
         // Legacy Google Sheets API Configuration (disabled due to auth changes)
@@ -1470,6 +1470,24 @@
 
         // Initialize Google Apps Script Logger (Primary)
         const googleAppsScriptLogger = new GoogleAppsScriptLogger(GOOGLE_APPS_SCRIPT_CONFIG);
+        
+        // Automatically test connection on startup if configured
+        if (googleAppsScriptLogger.isEnabled) {
+            console.log('🚀 Google Apps Script is configured! Testing connection...');
+            setTimeout(async () => {
+                try {
+                    const testResult = await googleAppsScriptLogger.testConnection();
+                    if (testResult.success) {
+                        console.log('✅ Google Apps Script connection successful! Your chatbot data will now log to Google Sheets automatically.');
+                    } else {
+                        console.log('⚠️ Google Apps Script connection test failed:', testResult.error);
+                        console.log('💡 Try: await testGoogleAppsScript() for detailed diagnostics');
+                    }
+                } catch (error) {
+                    console.log('⚠️ Google Apps Script connection test failed:', error.message);
+                }
+            }, 2000); // Test after 2 seconds to allow page to fully load
+        }
         
         // Initialize Google Sheets Logger (Legacy - Disabled)
         const googleSheetsLogger = new GoogleSheetsLogger(GOOGLE_SHEETS_CONFIG);
@@ -1634,6 +1652,60 @@
                 message: 'Configuration updated for current session. Edit the HTML file to make changes permanent.',
                 testCommand: 'await testGoogleAppsScript()'
             };
+        };
+
+        // Quick status check for all integrations
+        window.checkIntegrationStatus = function() {
+            console.log('📊 Integration Status Report:');
+            console.log('================================');
+            
+            const gasStatus = googleAppsScriptLogger.getStatus();
+            console.log('🔷 Google Apps Script:', gasStatus.enabled ? '✅ ENABLED' : '❌ Disabled');
+            if (gasStatus.enabled) {
+                console.log('   📋 Web App URL:', gasStatus.webAppUrl);
+                console.log('   📄 Sheet ID:', gasStatus.sheetId);
+            }
+            
+            console.log('🔷 n8n Connection:', '⚠️ Check manually by sending a message');
+            console.log('   📋 Endpoint:', API_URL + '/webhook/' + WEBHOOK_ID + '/chat');
+            
+            console.log('🔷 Local Storage:', '✅ Always available');
+            
+            console.log('================================');
+            console.log('🧪 Quick Tests:');
+            console.log('   • Test Google Apps Script: await testGoogleAppsScript()');
+            console.log('   • Test n8n: Send a message in the chat');
+            console.log('   • View analytics: Ctrl+Shift+A');
+            
+            return {
+                googleAppsScript: gasStatus,
+                n8nEndpoint: API_URL + '/webhook/' + WEBHOOK_ID + '/chat',
+                localStorage: true
+            };
+        };
+
+        // Explain the "doGet" error that users might see
+        window.explainDoGetError = function() {
+            console.log('❓ About the "Script function not found: doGet" error:');
+            console.log('');
+            console.log('✅ This error is NORMAL and EXPECTED!');
+            console.log('');
+            console.log('🔍 Why it happens:');
+            console.log('   • Your Google Apps Script is designed for POST requests (from the chatbot)');
+            console.log('   • When you visit the URL directly in browser, it tries a GET request');
+            console.log('   • Since there\'s no doGet() function, it shows this error');
+            console.log('');
+            console.log('💡 What this means:');
+            console.log('   • Your script is deployed correctly');
+            console.log('   • It will work perfectly with your chatbot');
+            console.log('   • The error only appears when visiting the URL directly');
+            console.log('');
+            console.log('🧪 To test if it really works:');
+            console.log('   • Run: await testGoogleAppsScript()');
+            console.log('   • Or send a message in your chatbot');
+            console.log('   • Check your Google Sheet for new data');
+            
+            return 'The "doGet" error is normal - your script is working correctly!';
         };
 
         window.configureGoogleSheets = function(apiKey, sheetId) {
