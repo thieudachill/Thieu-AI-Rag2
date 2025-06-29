@@ -283,6 +283,150 @@
             transform: translateY(-1px);
         }
 
+        .analytics-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background: white;
+            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.1);
+            transition: right 0.3s ease;
+            z-index: 2000;
+            overflow-y: auto;
+            font-size: 14px;
+        }
+
+        .analytics-panel.open {
+            right: 0;
+        }
+
+        .analytics-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            position: sticky;
+            top: 0;
+        }
+
+        .analytics-header h3 {
+            margin: 0 0 5px 0;
+            font-size: 18px;
+        }
+
+        .analytics-content {
+            padding: 20px;
+        }
+
+        .analytics-section {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .analytics-section h4 {
+            margin: 0 0 15px 0;
+            color: #333;
+            font-size: 16px;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .metric-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .analytics-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .analytics-btn {
+            flex: 1;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s ease;
+        }
+
+        .analytics-btn.primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .analytics-btn.secondary {
+            background: #e0e0e0;
+            color: #333;
+        }
+
+        .analytics-btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .interaction-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .interaction-item {
+            background: #f5f5f5;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .interaction-type {
+            font-weight: 600;
+            color: #667eea;
+            margin-bottom: 4px;
+        }
+
+        .interaction-time {
+            color: #999;
+            font-size: 10px;
+        }
+
+        .close-analytics {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
         .status-dot {
             width: 6px;
             height: 6px;
@@ -398,9 +542,10 @@
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <h1>🤖 Matthew's AI Assistant</h1>
-            <p>Connected to live AI system - Ask me anything!</p>
+            <h1>Hi! I am Thew, Matthew's AI friend</h1>
+            <p>Curious about Matthew? - Ask me anything!</p>
             <button class="help-button" onclick="toggleTroubleshooting()" title="Show/Hide Help">❓ Help</button>
+            <button class="help-button" onclick="toggleAnalytics()" title="View Analytics" style="left: 70px;">📊 Analytics</button>
             <div class="connection-status online" id="connectionStatus">
                 <div class="status-dot"></div>
                 <span>Online</span>
@@ -409,8 +554,8 @@
         
         <div class="chat-messages" id="chatMessages">
             <div class="welcome-message">
-                <h3>👋 Welcome to Matthew's AI Assistant!</h3>
-                <p>I'm powered by advanced RAG technology and can help answer questions about Matthew's background, projects, skills, and experience. Feel free to ask me anything!</p>
+                <h3>👋 Welcome to Matthew's AI Friend!</h3>
+                <p>I'm living in his computer and can help answer questions about Matthew's background, projects, skills, and experience. Feel free to ask me anything!</p>
             </div>
         </div>
         
@@ -469,6 +614,57 @@
         </div>
     </div>
 
+    <!-- Analytics Panel -->
+    <div class="analytics-panel" id="analyticsPanel">
+        <div class="analytics-header">
+            <h3>📊 AI Interaction Analytics</h3>
+            <p>Real-time monitoring dashboard</p>
+            <button class="close-analytics" onclick="closeAnalytics()">×</button>
+        </div>
+        
+        <div class="analytics-content">
+            <div class="analytics-controls">
+                <button class="analytics-btn primary" onclick="refreshAnalytics()">🔄 Refresh</button>
+                <button class="analytics-btn secondary" onclick="exportAnalytics()">📤 Export</button>
+            </div>
+
+            <div class="analytics-section">
+                <h4>📈 Current Session</h4>
+                <div class="metric-grid" id="sessionMetrics">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+
+            <div class="analytics-section">
+                <h4>⚡ Performance</h4>
+                <div class="metric-grid" id="performanceMetrics">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+
+            <div class="analytics-section">
+                <h4>💬 Recent Interactions</h4>
+                <div class="interaction-list" id="recentInteractions">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+
+            <div class="analytics-section">
+                <h4>📋 Popular Questions</h4>
+                <div id="popularQuestions">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+
+            <div class="analytics-section">
+                <h4>🎯 User Behavior</h4>
+                <div id="userBehavior">
+                    <!-- Dynamic content will be inserted here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         const chatMessages = document.getElementById('chatMessages');
         const messageInput = document.getElementById('messageInput');
@@ -478,6 +674,334 @@
         const quickActions = document.getElementById('quickActions');
         let messageCount = 0;
         let isConnected = true;
+        
+        // Comprehensive Logging System
+        class AIInteractionLogger {
+            constructor() {
+                this.sessionId = this.getOrCreateSessionId();
+                this.sessionStartTime = Date.now();
+                this.interactions = [];
+                this.analytics = {
+                    totalSessions: 0,
+                    totalMessages: 0,
+                    averageSessionDuration: 0,
+                    popularQuestions: {},
+                    errorRate: 0,
+                    userEngagement: {},
+                    responseTime: []
+                };
+                this.loadStoredData();
+                this.setupPeriodicSave();
+                console.log('🔍 AI Interaction Logger initialized - Session:', this.sessionId);
+            }
+
+            getOrCreateSessionId() {
+                let sessionId = sessionStorage.getItem('aiChatSessionId');
+                if (!sessionId) {
+                    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                    sessionStorage.setItem('aiChatSessionId', sessionId);
+                }
+                return sessionId;
+            }
+
+            logInteraction(type, data) {
+                const interaction = {
+                    id: Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                    sessionId: this.sessionId,
+                    timestamp: new Date().toISOString(),
+                    type: type, // 'user_message', 'ai_response', 'error', 'session_start', 'quick_action'
+                    data: data,
+                    metadata: {
+                        url: window.location.href,
+                        userAgent: navigator.userAgent,
+                        language: navigator.language,
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        screenSize: `${window.screen.width}x${window.screen.height}`,
+                        viewportSize: `${window.innerWidth}x${window.innerHeight}`
+                    }
+                };
+
+                this.interactions.push(interaction);
+                this.updateAnalytics(interaction);
+                this.saveToStorage();
+                
+                // Send to server if endpoint is configured
+                this.sendToServer(interaction);
+                
+                console.log('📊 Logged interaction:', interaction);
+                return interaction;
+            }
+
+            logUserMessage(message, messageId) {
+                return this.logInteraction('user_message', {
+                    message: message,
+                    messageId: messageId,
+                    messageLength: message.length,
+                    wordCount: message.split(' ').length,
+                    timestamp: Date.now()
+                });
+            }
+
+            logAIResponse(response, userMessageId, responseTime) {
+                return this.logInteraction('ai_response', {
+                    response: response,
+                    userMessageId: userMessageId,
+                    responseTime: responseTime,
+                    responseLength: response.length,
+                    wordCount: response.split(' ').length,
+                    timestamp: Date.now()
+                });
+            }
+
+            logError(error, context) {
+                return this.logInteraction('error', {
+                    error: error.message || error,
+                    stack: error.stack,
+                    context: context,
+                    timestamp: Date.now()
+                });
+            }
+
+            logQuickAction(action) {
+                return this.logInteraction('quick_action', {
+                    action: action,
+                    timestamp: Date.now()
+                });
+            }
+
+            logSessionEnd() {
+                const sessionDuration = Date.now() - this.sessionStartTime;
+                return this.logInteraction('session_end', {
+                    duration: sessionDuration,
+                    messageCount: this.interactions.filter(i => i.type === 'user_message').length,
+                    timestamp: Date.now()
+                });
+            }
+
+            updateAnalytics(interaction) {
+                switch (interaction.type) {
+                    case 'user_message':
+                        this.analytics.totalMessages++;
+                        const question = interaction.data.message.toLowerCase();
+                        this.analytics.popularQuestions[question] = (this.analytics.popularQuestions[question] || 0) + 1;
+                        break;
+                    
+                    case 'ai_response':
+                        if (interaction.data.responseTime) {
+                            this.analytics.responseTime.push(interaction.data.responseTime);
+                        }
+                        break;
+                    
+                    case 'error':
+                        this.analytics.errorRate++;
+                        break;
+                    
+                    case 'session_start':
+                        this.analytics.totalSessions++;
+                        break;
+                }
+            }
+
+            loadStoredData() {
+                try {
+                    const stored = localStorage.getItem('aiChatAnalytics');
+                    if (stored) {
+                        const data = JSON.parse(stored);
+                        this.analytics = { ...this.analytics, ...data.analytics };
+                        // Load recent interactions (last 100)
+                        this.interactions = data.interactions ? data.interactions.slice(-100) : [];
+                    }
+                } catch (error) {
+                    console.warn('Failed to load stored analytics:', error);
+                }
+            }
+
+            saveToStorage() {
+                try {
+                    const dataToStore = {
+                        analytics: this.analytics,
+                        interactions: this.interactions.slice(-100), // Keep last 100 interactions
+                        lastUpdated: new Date().toISOString()
+                    };
+                    localStorage.setItem('aiChatAnalytics', JSON.stringify(dataToStore));
+                } catch (error) {
+                    console.warn('Failed to save analytics:', error);
+                }
+            }
+
+            setupPeriodicSave() {
+                // Save data every 30 seconds
+                setInterval(() => {
+                    this.saveToStorage();
+                }, 30000);
+
+                // Save on page unload
+                window.addEventListener('beforeunload', () => {
+                    this.logSessionEnd();
+                    this.saveToStorage();
+                });
+            }
+
+            async sendToServer(interaction) {
+                // Optional: Send to your logging endpoint
+                const LOGGING_ENDPOINT = `${API_URL}/log-interaction`;
+                
+                try {
+                    await fetch(LOGGING_ENDPOINT, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: JSON.stringify(interaction)
+                    });
+                } catch (error) {
+                    // Silently fail - logging shouldn't break the chat
+                    console.log('Logging to server failed (optional):', error);
+                }
+            }
+
+            getAnalyticsSummary() {
+                const sessionDuration = Date.now() - this.sessionStartTime;
+                const userMessages = this.interactions.filter(i => i.type === 'user_message');
+                const aiResponses = this.interactions.filter(i => i.type === 'ai_response');
+                const errors = this.interactions.filter(i => i.type === 'error');
+                
+                const avgResponseTime = this.analytics.responseTime.length > 0 
+                    ? this.analytics.responseTime.reduce((a, b) => a + b, 0) / this.analytics.responseTime.length 
+                    : 0;
+
+                const topQuestions = Object.entries(this.analytics.popularQuestions)
+                    .sort(([,a], [,b]) => b - a)
+                    .slice(0, 5)
+                    .map(([question, count]) => ({ question, count }));
+
+                return {
+                    session: {
+                        id: this.sessionId,
+                        duration: sessionDuration,
+                        startTime: new Date(this.sessionStartTime).toISOString(),
+                        messageCount: userMessages.length,
+                        responseCount: aiResponses.length,
+                        errorCount: errors.length
+                    },
+                    performance: {
+                        averageResponseTime: Math.round(avgResponseTime),
+                        errorRate: errors.length / Math.max(userMessages.length, 1),
+                        engagementScore: this.calculateEngagementScore()
+                    },
+                    insights: {
+                        topQuestions: topQuestions,
+                        conversationFlow: this.analyzeConversationFlow(),
+                        userBehavior: this.analyzeUserBehavior()
+                    },
+                    totals: {
+                        allTimeSessions: this.analytics.totalSessions,
+                        allTimeMessages: this.analytics.totalMessages,
+                        currentInteractions: this.interactions.length
+                    }
+                };
+            }
+
+            calculateEngagementScore() {
+                const sessionDuration = Date.now() - this.sessionStartTime;
+                const messageCount = this.interactions.filter(i => i.type === 'user_message').length;
+                
+                // Score based on duration and message frequency
+                const durationScore = Math.min(sessionDuration / 60000, 10); // Max 10 points for 10 minutes
+                const messageScore = Math.min(messageCount * 2, 20); // Max 20 points for 10 messages
+                
+                return Math.round(durationScore + messageScore);
+            }
+
+            analyzeConversationFlow() {
+                const flow = [];
+                const userMessages = this.interactions.filter(i => i.type === 'user_message');
+                
+                userMessages.forEach((msg, index) => {
+                    flow.push({
+                        step: index + 1,
+                        message: msg.data.message.substring(0, 50) + '...',
+                        timestamp: msg.timestamp,
+                        responseTime: this.getResponseTimeForMessage(msg.id)
+                    });
+                });
+                
+                return flow;
+            }
+
+            analyzeUserBehavior() {
+                const behavior = {
+                    quickActionsUsed: this.interactions.filter(i => i.type === 'quick_action').length,
+                    averageMessageLength: 0,
+                    mostActiveTimeOfDay: new Date().getHours(),
+                    sessionPattern: 'interactive' // interactive, brief, extended
+                };
+
+                const userMessages = this.interactions.filter(i => i.type === 'user_message');
+                if (userMessages.length > 0) {
+                    behavior.averageMessageLength = Math.round(
+                        userMessages.reduce((sum, msg) => sum + msg.data.messageLength, 0) / userMessages.length
+                    );
+                }
+
+                const sessionDuration = Date.now() - this.sessionStartTime;
+                if (sessionDuration < 60000) behavior.sessionPattern = 'brief';
+                else if (sessionDuration > 300000) behavior.sessionPattern = 'extended';
+
+                return behavior;
+            }
+
+            getResponseTimeForMessage(messageId) {
+                const response = this.interactions.find(i => 
+                    i.type === 'ai_response' && i.data.userMessageId === messageId
+                );
+                return response ? response.data.responseTime : null;
+            }
+
+            exportData() {
+                const data = {
+                    summary: this.getAnalyticsSummary(),
+                    fullInteractionLog: this.interactions,
+                    analytics: this.analytics,
+                    exportedAt: new Date().toISOString(),
+                    version: '1.0'
+                };
+
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `ai-chat-analytics-${this.sessionId}-${Date.now()}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                console.log('📊 Analytics data exported');
+                return data;
+            }
+
+            getRealtimeDashboard() {
+                return {
+                    currentSession: this.getAnalyticsSummary(),
+                    liveMetrics: {
+                        isActive: true,
+                        lastActivity: this.interactions.length > 0 ? this.interactions[this.interactions.length - 1].timestamp : null,
+                        connectionStatus: isConnected ? 'online' : 'offline',
+                        currentMessageCount: this.interactions.filter(i => i.type === 'user_message').length
+                    },
+                    recentInteractions: this.interactions.slice(-10)
+                };
+            }
+        }
+
+        // Initialize logger
+        const aiLogger = new AIInteractionLogger();
+        
+        // Make logger globally accessible for console debugging
+        window.aiLogger = aiLogger;
+        window.getAnalytics = () => aiLogger.getAnalyticsSummary();
+        window.exportAnalytics = () => aiLogger.exportData();
+        window.viewDashboard = () => console.table(aiLogger.getRealtimeDashboard());
 
         // Auto-resize input and handle Enter key
         messageInput.addEventListener('keypress', function(e) {
@@ -499,6 +1023,13 @@
             // Track last message for retry functionality
             lastUserMessage = message;
 
+            // Generate unique message ID for logging
+            const messageId = Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            const requestStartTime = Date.now();
+
+            // Log user message
+            aiLogger.logUserMessage(message, messageId);
+
             // Clear empty state
             clearEmptyState();
 
@@ -514,10 +1045,14 @@
 
             // Make actual API call to your ngrok endpoint with fallback methods
             try {
-                await sendMessageWithFallback(message);
+                await sendMessageWithFallback(message, messageId, requestStartTime);
             } catch (error) {
                 hideTypingIndicator();
                 updateConnectionStatus(false); // This will only show troubleshooting after 3 failures
+                
+                // Log the error
+                aiLogger.logError(error, 'sendMessage_final_catch');
+                
                 addMessage("Sorry, I'm having trouble connecting. Click the 'Help' button above for troubleshooting tips.", 'bot', true);
                 console.error('All API methods failed:', error);
             }
@@ -574,12 +1109,12 @@
         const WEBHOOK_ID = '9e86df65-9069-444d-ae7a-15a8f4676abb';
         
         // Alternative API methods to handle CORS issues
-        async function sendMessageWithFallback(message) {
+        async function sendMessageWithFallback(message, messageId, requestStartTime) {
             // Try different approaches in order of preference
             const methods = [
-                () => sendMessageToAPI(message),
-                () => sendMessageViaForm(message),
-                () => sendMessageViaJsonp(message)
+                () => sendMessageToAPI(message, messageId, requestStartTime),
+                () => sendMessageViaForm(message, messageId, requestStartTime),
+                () => sendMessageViaJsonp(message, messageId, requestStartTime)
             ];
             
             for (let i = 0; i < methods.length; i++) {
@@ -588,6 +1123,7 @@
                     return; // Success, exit
                 } catch (error) {
                     console.log(`Method ${i + 1} failed:`, error);
+                    aiLogger.logError(error, `sendMessageWithFallback_method_${i + 1}`);
                     if (i === methods.length - 1) {
                         throw error; // Last method failed, throw error
                     }
@@ -596,7 +1132,7 @@
         }
         
         // Form-based submission to avoid CORS
-        async function sendMessageViaForm(message) {
+        async function sendMessageViaForm(message, messageId, requestStartTime) {
             const form = new FormData();
             form.append('chatInput', message);
             form.append('sessionId', getSessionId());
@@ -611,14 +1147,21 @@
                 body: form
             });
             
+            const responseTime = Date.now() - requestStartTime;
+            
             // Note: With no-cors mode, we can't read the response
             hideTypingIndicator();
-            addMessage("Message sent! (Response may not be visible due to CORS restrictions)", 'bot');
+            const fallbackResponse = "Message sent! (Response may not be visible due to CORS restrictions)";
+            
+            // Log the fallback response
+            aiLogger.logAIResponse(fallbackResponse, messageId, responseTime);
+            
+            addMessage(fallbackResponse, 'bot');
             updateConnectionStatus(true);
         }
         
         // JSONP fallback (if supported by your n8n webhook)
-        async function sendMessageViaJsonp(message) {
+        async function sendMessageViaJsonp(message, messageId, requestStartTime) {
             return new Promise((resolve, reject) => {
                 const callbackName = 'jsonp_callback_' + Math.random().toString(36).substr(2, 9);
                 const script = document.createElement('script');
@@ -634,9 +1177,14 @@
                 }
                 
                 window[callbackName] = function(data) {
+                    const responseTime = Date.now() - requestStartTime;
                     cleanup();
                     hideTypingIndicator();
                     const botResponse = data.output || data.response || data.message || "JSONP response received!";
+                    
+                    // Log the JSONP response
+                    aiLogger.logAIResponse(botResponse, messageId, responseTime);
+                    
                     addMessage(botResponse, 'bot');
                     updateConnectionStatus(true);
                     resolve(data);
@@ -659,7 +1207,7 @@
             });
         }
         
-        async function sendMessageToAPI(message) {
+        async function sendMessageToAPI(message, messageId, requestStartTime) {
             const requestUrl = `${API_URL}/webhook/${WEBHOOK_ID}/chat`;
             const requestData = {
                 chatInput: message,
@@ -694,10 +1242,16 @@
 
                 const data = await response.json();
                 console.log('✅ Response data:', data);
+                
+                const responseTime = Date.now() - requestStartTime;
                 hideTypingIndicator();
                 
                 // Handle the response from your API - try multiple possible response fields
                 const botResponse = data.output || data.response || data.message || data.text || data.answer || data.chatOutput || "I received your message!";
+                
+                // Log AI response
+                aiLogger.logAIResponse(botResponse, messageId, responseTime);
+                
                 addMessage(botResponse, 'bot');
                 updateConnectionStatus(true);
                 
@@ -705,6 +1259,9 @@
                 console.error('❌ API call failed:', error);
                 hideTypingIndicator();
                 updateConnectionStatus(false);
+                
+                // Log the error
+                aiLogger.logError(error, 'sendMessageToAPI');
                 
                 // Provide detailed error information
                 let errorMessage = 'Connection failed: ';
@@ -719,6 +1276,7 @@
                 }
                 
                 addMessage(errorMessage, 'bot', true);
+                throw error; // Re-throw for fallback handling
             }
         }
 
@@ -787,7 +1345,134 @@
             }
         }
 
+        // Analytics Panel Functions
+        function toggleAnalytics() {
+            const panel = document.getElementById('analyticsPanel');
+            if (panel.classList.contains('open')) {
+                closeAnalytics();
+            } else {
+                openAnalytics();
+            }
+        }
+
+        function openAnalytics() {
+            const panel = document.getElementById('analyticsPanel');
+            panel.classList.add('open');
+            refreshAnalytics();
+        }
+
+        function closeAnalytics() {
+            const panel = document.getElementById('analyticsPanel');
+            panel.classList.remove('open');
+        }
+
+        function refreshAnalytics() {
+            const summary = aiLogger.getAnalyticsSummary();
+            updateAnalyticsDisplay(summary);
+        }
+
+        function exportAnalytics() {
+            aiLogger.exportData();
+        }
+
+        function updateAnalyticsDisplay(summary) {
+            // Update session metrics
+            const sessionMetrics = document.getElementById('sessionMetrics');
+            sessionMetrics.innerHTML = `
+                <div class="metric-card">
+                    <div class="metric-value">${summary.session.messageCount}</div>
+                    <div class="metric-label">Messages</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${Math.round(summary.session.duration / 60000)}m</div>
+                    <div class="metric-label">Session Duration</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${summary.session.responseCount}</div>
+                    <div class="metric-label">AI Responses</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${summary.performance.engagementScore}</div>
+                    <div class="metric-label">Engagement Score</div>
+                </div>
+            `;
+
+            // Update performance metrics
+            const performanceMetrics = document.getElementById('performanceMetrics');
+            performanceMetrics.innerHTML = `
+                <div class="metric-card">
+                    <div class="metric-value">${summary.performance.averageResponseTime}ms</div>
+                    <div class="metric-label">Avg Response Time</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${(summary.performance.errorRate * 100).toFixed(1)}%</div>
+                    <div class="metric-label">Error Rate</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${summary.totals.allTimeSessions}</div>
+                    <div class="metric-label">Total Sessions</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">${summary.totals.allTimeMessages}</div>
+                    <div class="metric-label">Total Messages</div>
+                </div>
+            `;
+
+            // Update recent interactions
+            const recentInteractions = document.getElementById('recentInteractions');
+            const dashboard = aiLogger.getRealtimeDashboard();
+            recentInteractions.innerHTML = dashboard.recentInteractions.map(interaction => `
+                <div class="interaction-item">
+                    <div class="interaction-type">${interaction.type.replace('_', ' ').toUpperCase()}</div>
+                    <div>${interaction.type === 'user_message' ? interaction.data.message : 
+                           interaction.type === 'ai_response' ? interaction.data.response.substring(0, 50) + '...' :
+                           interaction.type === 'error' ? interaction.data.error :
+                           interaction.data.action || 'N/A'}</div>
+                    <div class="interaction-time">${new Date(interaction.timestamp).toLocaleTimeString()}</div>
+                </div>
+            `).join('');
+
+            // Update popular questions
+            const popularQuestions = document.getElementById('popularQuestions');
+            popularQuestions.innerHTML = summary.insights.topQuestions.length > 0 
+                ? summary.insights.topQuestions.map(q => `
+                    <div style="margin-bottom: 8px; font-size: 12px;">
+                        <strong>${q.count}x:</strong> ${q.question.substring(0, 50)}${q.question.length > 50 ? '...' : ''}
+                    </div>
+                `).join('')
+                : '<div style="color: #999; font-style: italic;">No questions tracked yet</div>';
+
+            // Update user behavior
+            const userBehavior = document.getElementById('userBehavior');
+            const behavior = summary.insights.userBehavior;
+            userBehavior.innerHTML = `
+                <div style="margin-bottom: 10px;">
+                    <strong>Session Pattern:</strong> ${behavior.sessionPattern}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>Avg Message Length:</strong> ${behavior.averageMessageLength} chars
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>Quick Actions Used:</strong> ${behavior.quickActionsUsed}
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <strong>Active Time:</strong> ${behavior.mostActiveTimeOfDay}:00
+                </div>
+            `;
+        }
+
+        // Real-time analytics updates
+        setInterval(() => {
+            const panel = document.getElementById('analyticsPanel');
+            if (panel.classList.contains('open')) {
+                refreshAnalytics();
+            }
+        }, 5000); // Update every 5 seconds when panel is open
+
         function sendQuickMessage(message) {
+            // Log quick action
+            aiLogger.logQuickAction(message);
+            
             messageInput.value = message;
             sendMessage();
         }
@@ -885,6 +1570,14 @@
             // Set initial status as online (since user says chat is working)
             updateConnectionStatus(true);
             
+            // Log session start
+            aiLogger.logInteraction('session_start', {
+                timestamp: Date.now(),
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                timezone: Intl.DateTimeFormat().resolvedOptions().timeZone
+            });
+            
             // Add keyboard shortcuts
             document.addEventListener('keydown', function(e) {
                 // Ctrl/Cmd + R to retry last message
@@ -892,12 +1585,22 @@
                     e.preventDefault();
                     retryLastMessage();
                 }
+                
+                // Ctrl/Cmd + Shift + A to open analytics
+                if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'A') {
+                    e.preventDefault();
+                    toggleAnalytics();
+                }
             });
             
             // Auto-focus input when clicking in chat area
             chatMessages.addEventListener('click', function() {
                 messageInput.focus();
             });
+            
+            console.log('🔍 AI Interaction Logging is active!');
+            console.log('📊 Press Ctrl+Shift+A to open analytics dashboard');
+            console.log('💾 Data is automatically saved locally and can be exported');
         });
 
         // Better mobile support
