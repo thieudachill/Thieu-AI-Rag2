@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Chatbot Test</title>
+    <title>Matthew's AI Assistant - Live Chat</title>
     <style>
         * {
             margin: 0;
@@ -240,19 +240,142 @@
         .chat-messages::-webkit-scrollbar-thumb:hover {
             background: #a8a8a8;
         }
+
+        /* Enhanced Features */
+        .connection-status {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .connection-status.online {
+            background: rgba(16, 185, 129, 0.2);
+            color: #059669;
+        }
+
+        .connection-status.offline {
+            background: rgba(239, 68, 68, 0.2);
+            color: #dc2626;
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .message-timestamp {
+            font-size: 10px;
+            color: #999;
+            margin-top: 4px;
+            opacity: 0.7;
+        }
+
+        .message.user .message-timestamp {
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .quick-actions {
+            padding: 10px 20px 0;
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .quick-action-btn {
+            background: rgba(102, 126, 234, 0.1);
+            border: 1px solid rgba(102, 126, 234, 0.3);
+            color: #667eea;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .quick-action-btn:hover {
+            background: rgba(102, 126, 234, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .retry-button {
+            background: #f59e0b;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 10px;
+            cursor: pointer;
+            margin-top: 5px;
+            transition: all 0.2s ease;
+        }
+
+        .retry-button:hover {
+            background: #d97706;
+        }
+
+        .message-error {
+            border: 1px solid #fecaca !important;
+            background: #fef2f2 !important;
+            color: #7f1d1d !important;
+        }
+
+        .typing-indicator {
+            justify-content: flex-start;
+        }
+
+        .welcome-message {
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border: 1px solid rgba(102, 126, 234, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .welcome-message h3 {
+            color: #667eea;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .welcome-message p {
+            color: #6b7280;
+            font-size: 14px;
+            line-height: 1.4;
+        }
     </style>
 </head>
 <body>
     <div class="chat-container">
         <div class="chat-header">
-            <h1>🤖 AI Chatbot</h1>
-            <p>Type your message below to start chatting</p>
+            <h1>🤖 Matthew's AI Assistant</h1>
+            <p>Connected to live AI system - Ask me anything!</p>
+            <div class="connection-status online" id="connectionStatus">
+                <div class="status-dot"></div>
+                <span>Online</span>
+            </div>
         </div>
         
         <div class="chat-messages" id="chatMessages">
-            <div class="empty-state">
-                👋 Welcome! Send a message to start the conversation.
+            <div class="welcome-message">
+                <h3>👋 Welcome to Matthew's AI Assistant!</h3>
+                <p>I'm powered by advanced RAG technology and can help answer questions about Matthew's background, projects, skills, and experience. Feel free to ask me anything!</p>
             </div>
+        </div>
+        
+        <div class="quick-actions" id="quickActions">
+            <button class="quick-action-btn" onclick="sendQuickMessage('Tell me about Matthew')">About Matthew</button>
+            <button class="quick-action-btn" onclick="sendQuickMessage('What projects has he worked on?')">Projects</button>
+            <button class="quick-action-btn" onclick="sendQuickMessage('What are his technical skills?')">Skills</button>
+            <button class="quick-action-btn" onclick="sendQuickMessage('How can I contact him?')">Contact</button>
         </div>
         
         <div class="typing-indicator" id="typingIndicator">
@@ -284,7 +407,10 @@
         const messageInput = document.getElementById('messageInput');
         const sendButton = document.getElementById('sendButton');
         const typingIndicator = document.getElementById('typingIndicator');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const quickActions = document.getElementById('quickActions');
         let messageCount = 0;
+        let isConnected = true;
 
         // Auto-resize input and handle Enter key
         messageInput.addEventListener('keypress', function(e) {
@@ -299,9 +425,12 @@
             sendButton.disabled = this.value.trim() === '';
         });
 
-        function sendMessage() {
+        async function sendMessage() {
             const message = messageInput.value.trim();
             if (message === '') return;
+
+            // Track last message for retry functionality
+            lastUserMessage = message;
 
             // Clear empty state
             clearEmptyState();
@@ -316,45 +445,103 @@
             // Show typing indicator
             showTypingIndicator();
 
-            // Simulate bot response (replace this with your actual API call)
-            setTimeout(() => {
+            // Make actual API call to your ngrok endpoint
+            try {
+                await sendMessageToAPI(message);
+            } catch (error) {
                 hideTypingIndicator();
-                simulateBotResponse(message);
-            }, 1000 + Math.random() * 2000); // Random delay between 1-3 seconds
+                addMessage("Sorry, I'm having trouble connecting. Please try again.", 'bot', true);
+                console.error('API call failed:', error);
+            }
         }
 
-        function addMessage(content, sender) {
+        function addMessage(content, sender, isError = false) {
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}`;
             
             const messageContent = document.createElement('div');
-            messageContent.className = 'message-content';
-            messageContent.textContent = content;
+            messageContent.className = `message-content ${isError ? 'message-error' : ''}`;
+            
+            // Support basic formatting
+            if (content.includes('\n')) {
+                messageContent.innerHTML = content.replace(/\n/g, '<br>');
+            } else {
+                messageContent.textContent = content;
+            }
+            
+            // Add timestamp
+            const timestamp = document.createElement('div');
+            timestamp.className = 'message-timestamp';
+            timestamp.textContent = new Date().toLocaleTimeString([], { 
+                hour: '2-digit', 
+                minute: '2-digit' 
+            });
             
             messageDiv.appendChild(messageContent);
+            messageDiv.appendChild(timestamp);
+            
+            // Add retry button for error messages
+            if (isError && sender === 'bot') {
+                const retryBtn = document.createElement('button');
+                retryBtn.className = 'retry-button';
+                retryBtn.textContent = 'Retry';
+                retryBtn.onclick = () => retryLastMessage();
+                messageDiv.appendChild(retryBtn);
+            }
+            
             chatMessages.appendChild(messageDiv);
+            
+            // Hide quick actions after first message
+            if (messageCount === 0) {
+                quickActions.style.display = 'none';
+            }
             
             // Scroll to bottom
             scrollToBottom();
             messageCount++;
         }
 
-        function simulateBotResponse(userMessage) {
-            // This is just for testing - replace with your actual chatbot API
-            const responses = [
-                "Thank you for your message! I'm a test chatbot.",
-                "That's interesting! Tell me more about that.",
-                "I understand. How can I help you with that?",
-                "Great question! Let me think about that.",
-                "I'm still learning, but I appreciate your patience.",
-                "That's a good point. What else would you like to know?",
-                "I see what you mean. Is there anything specific you'd like help with?",
-                "Thanks for sharing that with me!"
-            ];
-            
-            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-            addMessage(randomResponse, 'bot');
+        // API Configuration - Updated to match n8n webhook
+        const API_URL = 'https://d107-2405-4803-d738-6750-1ce0-1119-75b8-f333.ngrok-free.app';
+        const WEBHOOK_ID = '9e86df65-9069-444d-ae7a-15a8f4676abb';
+        
+        async function sendMessageToAPI(message) {
+            try {
+                const response = await fetch(`${API_URL}/webhook/${WEBHOOK_ID}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        timestamp: new Date().toISOString()
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                hideTypingIndicator();
+                
+                // Handle the response from your API
+                const botResponse = data.response || data.message || data.text || data.answer || "I received your message!";
+                addMessage(botResponse, 'bot');
+                updateConnectionStatus(true);
+                
+            } catch (error) {
+                console.error('API call failed:', error);
+                hideTypingIndicator();
+                updateConnectionStatus(false);
+                
+                // Add error message with retry option
+                addMessage("Sorry, I'm having trouble connecting to the server. Please check your connection and try again.", 'bot', true);
+            }
         }
+
+
 
         function showTypingIndicator() {
             typingIndicator.style.display = 'flex';
@@ -376,21 +563,118 @@
             }
         }
 
+        // Enhanced functionality
+        function updateConnectionStatus(online) {
+            isConnected = online;
+            const statusEl = connectionStatus;
+            const statusText = statusEl.querySelector('span');
+            
+            if (online) {
+                statusEl.className = 'connection-status online';
+                statusText.textContent = 'Online';
+            } else {
+                statusEl.className = 'connection-status offline';
+                statusText.textContent = 'Offline';
+            }
+        }
+
+        function sendQuickMessage(message) {
+            messageInput.value = message;
+            sendMessage();
+        }
+
+        let lastUserMessage = '';
+        
+        function retryLastMessage() {
+            if (lastUserMessage) {
+                messageInput.value = lastUserMessage;
+                sendMessage();
+            }
+        }
+
+
+
+        // Auto-retry mechanism
+        let retryCount = 0;
+        const maxRetries = 2;
+
+        async function sendMessageWithRetry(message) {
+            try {
+                await sendMessageToAPI(message);
+                retryCount = 0; // Reset on success
+            } catch (error) {
+                if (retryCount < maxRetries) {
+                    retryCount++;
+                    console.log(`Retrying... Attempt ${retryCount}/${maxRetries}`);
+                    setTimeout(() => sendMessageWithRetry(message), 2000 * retryCount);
+                } else {
+                    retryCount = 0;
+                    throw error;
+                }
+            }
+        }
+
+        // Improved message formatting
+        function formatMessage(text) {
+            // Handle basic markdown-like formatting
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                .replace(/\n/g, '<br>');
+        }
+
+        // Connection test
+        async function testConnection() {
+            try {
+                const response = await fetch(`${API_URL}/webhook/${WEBHOOK_ID}/chat`, {
+                    method: 'HEAD',
+                    headers: {
+                        'ngrok-skip-browser-warning': 'true'
+                    }
+                });
+                updateConnectionStatus(response.ok);
+                return response.ok;
+            } catch (error) {
+                updateConnectionStatus(false);
+                return false;
+            }
+        }
+
+        // Periodically test connection
+        setInterval(testConnection, 30000); // Every 30 seconds
+
+        // Initial connection test
+        setTimeout(testConnection, 1000);
+
         // Initialize
         sendButton.disabled = true;
         messageInput.focus();
 
-        // Add some sample functionality for testing
-        function addSampleMessages() {
-            clearEmptyState();
-            addMessage("Hello! How are you today?", 'user');
-            setTimeout(() => {
-                addMessage("Hello! I'm doing well, thank you for asking. How can I help you today?", 'bot');
-            }, 500);
-        }
+        // Enhanced initialization
+        document.addEventListener('DOMContentLoaded', function() {
+            // Test connection on load
+            testConnection();
+            
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', function(e) {
+                // Ctrl/Cmd + R to retry last message
+                if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                    e.preventDefault();
+                    retryLastMessage();
+                }
+            });
+            
+            // Auto-focus input when clicking in chat area
+            chatMessages.addEventListener('click', function() {
+                messageInput.focus();
+            });
+        });
 
-        // You can call addSampleMessages() to test the UI
-        // addSampleMessages();
+        // Better mobile support
+        if ('ontouchstart' in window) {
+            document.body.classList.add('mobile');
+        }
     </script>
 </body>
 </html>
