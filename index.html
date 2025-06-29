@@ -630,9 +630,10 @@
                                     <button class="analytics-btn primary" onclick="refreshAnalytics()">🔄 Refresh</button>
                     <button class="analytics-btn secondary" onclick="exportAnalytics()">📤 Export JSON</button>
                     <button class="analytics-btn secondary" onclick="exportToGoogleDocs()">📄 Export to Google Docs</button>
-                    <button class="analytics-btn secondary" onclick="testGoogleAppsScript()">📊 Test Google Apps Script</button>
+                    <button class="analytics-btn primary" onclick="setupN8NLogging()">🚀 Setup n8n Logging (Recommended)</button>
+                    <button class="analytics-btn secondary" onclick="testN8NLogging()">🧪 Test n8n Logging</button>
                     <button class="analytics-btn secondary" onclick="openGoogleSheet()">📄 Open Google Sheet</button>
-                    <button class="analytics-btn secondary" onclick="troubleshootGoogleSheets()">🔧 Fix Google Sheets</button>
+                    <button class="analytics-btn secondary" onclick="testGoogleAppsScript()">📊 Test Google Apps Script</button>
                     <button class="analytics-btn secondary" onclick="troubleshootN8N()">🔧 Fix n8n Connection</button>
                     <button class="analytics-btn secondary" onclick="showGoogleAppsScriptSetup()">⚙️ Setup Google Apps Script</button>
             </div>
@@ -866,19 +867,31 @@
                     console.log('📊 Google Apps Script: Not configured - skipping sheet logging');
                 }
                 
-                // 2. n8n Logging endpoint (if available)
-                promises.push(
-                    fetch(`${API_URL}/log-interaction`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'ngrok-skip-browser-warning': 'true'
-                        },
-                        body: JSON.stringify(interaction)
-                    })
-                    .then(response => ({ name: 'n8n Logging', success: response.ok, response }))
-                    .catch(error => ({ name: 'n8n Logging', success: false, error }))
-                );
+                // 2. n8n Logging endpoint (improved)
+                if (N8N_LOGGING_CONFIG.enabled) {
+                    promises.push(
+                        fetch(`${API_URL}${N8N_LOGGING_CONFIG.logEndpoint}`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'ngrok-skip-browser-warning': 'true'
+                            },
+                            body: JSON.stringify({
+                                action: 'log_interaction',
+                                interaction: interaction,
+                                metadata: {
+                                    timestamp: new Date().toISOString(),
+                                    source: 'web_chatbot',
+                                    version: '2.0'
+                                }
+                            })
+                        })
+                        .then(response => ({ name: 'n8n Logging', success: response.ok, response }))
+                        .catch(error => ({ name: 'n8n Logging', success: false, error }))
+                    );
+                } else {
+                    console.log('📊 n8n Logging: Disabled in configuration');
+                }
                 
                 // 3. Google Apps Script (optional legacy support)
                 const appsScriptUrl = 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL_HERE';
@@ -1448,6 +1461,14 @@
         const API_URL = 'https://d107-2405-4803-d738-6750-1ce0-1119-75b8-f333.ngrok-free.app';
         const WEBHOOK_ID = '9e86df65-9069-444d-ae7a-15a8f4676abb';
         
+        // n8n Logging Configuration
+        const N8N_LOGGING_CONFIG = {
+            enabled: true,
+            chatEndpoint: `/webhook/${WEBHOOK_ID}/chat`, // Your existing chat webhook
+            logEndpoint: `/webhook/${WEBHOOK_ID}/log`,   // New logging webhook (to be created)
+            useIntegratedLogging: true // Send logging data with chat messages
+        };
+        
         // Google Apps Script Configuration (replaces direct Sheets API)
         const GOOGLE_APPS_SCRIPT_CONFIG = {
             webAppUrl: 'https://script.google.com/macros/s/AKfycbz0-zeaXh0urlU7bKua5P5EPgkCg7blEm7K1WhhHeEFhfJD21kqUj5n6Vc_B7b1LKSR/exec', // Your deployed Google Apps Script URL
@@ -1843,14 +1864,178 @@
             if (error.message.includes('Failed to fetch')) {
                 console.log('💡 Suggestion: Check network connection or ngrok tunnel');
                 console.log('🔧 Run: troubleshootN8N() for more help');
+                console.log('🔧 Or try: setupN8NLogging() for n8n-based Google Sheets logging');
             } else if (error.message.includes('401') && context.includes('Google Sheets')) {
-                console.log('💡 Suggestion: Google changed API requirements - use Google Apps Script instead');
-                console.log('🔧 Run: showGoogleAppsScriptSetup() for step-by-step setup');
+                console.log('💡 Suggestion: Google changed API requirements - use n8n Google Sheets node instead');
+                console.log('🔧 Run: setupN8NLogging() for n8n-based logging solution');
             } else if (error.message.includes('CORS')) {
                 console.log('💡 Suggestion: CORS policy blocking request');
                 console.log('🔧 Add CORS headers to your n8n webhook response');
             }
         }
+
+        // n8n Logging Setup Functions
+        window.setupN8NLogging = function() {
+            console.log('🚀 n8n Google Sheets Logging Setup Guide');
+            console.log('==========================================');
+            console.log('');
+            console.log('✨ RECOMMENDED SOLUTION: Use n8n\'s built-in Google Sheets node');
+            console.log('   This is more reliable than Google Apps Script!');
+            console.log('');
+            console.log('📋 STEP-BY-STEP SETUP:');
+            console.log('');
+            console.log('1. 🔗 Open your n8n editor');
+            console.log('2. 🆕 Create a new workflow with this structure:');
+            console.log('');
+            
+            const workflowStructure = `
+   [Webhook] → [Switch] → [Your AI Node] → [HTTP Response]
+                    ↓
+              [Google Sheets]
+            `;
+            
+            console.log(workflowStructure);
+            console.log('');
+            console.log('3. ⚙️ Configure the Switch node:');
+            console.log('   • Condition 1: enableLogging = true');
+            console.log('   • Route to Google Sheets node');
+            console.log('');
+            console.log('4. 📊 Add Google Sheets node:');
+            console.log('   • Operation: Append');
+            console.log('   • Sheet: Your Google Sheet ID');
+            console.log('   • Values: Map from webhook data');
+            console.log('');
+            console.log('5. 🔧 Configure data mapping:');
+            console.log('   A: {{ $now.format("DD/MM/YYYY HH:mm:ss") }}  // Timestamp');
+            console.log('   B: {{ $("Webhook").first().json.sessionId }}   // Session ID');
+            console.log('   C: user_message                                // Type');
+            console.log('   D: {{ $("Webhook").first().json.chatInput }}   // Message');
+            console.log('   E: {{ $("Webhook").first().json.metadata.userAgent }} // User Agent');
+            console.log('   F: {{ $("Webhook").first().json.metadata.language }}  // Language');
+            console.log('');
+            console.log('📥 WEBHOOK PAYLOAD STRUCTURE:');
+            console.log('The webhook now sends enhanced data:');
+            
+            const samplePayload = {
+                chatInput: "Hello!",
+                sessionId: "session_123",
+                timestamp: "2024-01-01T12:00:00Z",
+                metadata: {
+                    messageId: "msg_123",
+                    userAgent: "Browser info",
+                    language: "en-US",
+                    timezone: "America/New_York",
+                    requestStartTime: 1640995200000,
+                    source: "web_chatbot"
+                },
+                enableLogging: true
+            };
+            
+            console.log(JSON.stringify(samplePayload, null, 2));
+            console.log('');
+            console.log('🧪 TESTING:');
+            console.log('   • Send a test message from your chatbot');
+            console.log('   • Check n8n execution log');
+            console.log('   • Verify data appears in Google Sheets');
+            console.log('');
+            console.log('💡 BENEFITS:');
+            console.log('   ✅ No API key management');
+            console.log('   ✅ Built-in Google OAuth');
+            console.log('   ✅ Better error handling');
+            console.log('   ✅ Visual workflow editor');
+            console.log('   ✅ One place for chat + logging');
+            console.log('');
+                         console.log('🔗 Your n8n endpoint: ' + API_URL + '/webhook/' + WEBHOOK_ID + '/chat');
+             console.log('📊 Your Google Sheet: https://docs.google.com/spreadsheets/d/' + GOOGLE_APPS_SCRIPT_CONFIG.sheetId + '/edit');
+             console.log('');
+             console.log('📁 READY-TO-USE WORKFLOW:');
+             console.log('   I\'ve created a complete n8n workflow template for you!');
+             console.log('   📋 File: n8n-workflow-template.json');
+             console.log('   📥 Import this workflow into your n8n instance');
+             console.log('   ⚙️ Configure your OpenAI and Google Sheets credentials');
+             console.log('   🚀 Activate the workflow');
+             console.log('');
+             console.log('🔧 CONFIGURATION NEEDED:');
+             console.log('   1. Add OpenAI API credentials in n8n');
+             console.log('   2. Add Google Sheets OAuth2 credentials in n8n');
+             console.log('   3. Update Sheet ID in the workflow (already set to your sheet)');
+             console.log('   4. Test with a message from your chatbot');
+             
+             return {
+                 workflowStructure: workflowStructure,
+                 samplePayload: samplePayload,
+                 sheetUrl: 'https://docs.google.com/spreadsheets/d/' + GOOGLE_APPS_SCRIPT_CONFIG.sheetId + '/edit',
+                 workflowFile: 'n8n-workflow-template.json'
+             };
+        };
+
+        window.toggleN8NLogging = function(enabled = null) {
+            if (enabled === null) {
+                N8N_LOGGING_CONFIG.enabled = !N8N_LOGGING_CONFIG.enabled;
+            } else {
+                N8N_LOGGING_CONFIG.enabled = enabled;
+            }
+            
+            console.log('🔧 n8n Logging:', N8N_LOGGING_CONFIG.enabled ? 'ENABLED' : 'DISABLED');
+            console.log('📋 Current config:', N8N_LOGGING_CONFIG);
+            
+            return N8N_LOGGING_CONFIG;
+        };
+
+        window.testN8NLogging = async function() {
+            console.log('🧪 Testing n8n Logging...');
+            
+            if (!N8N_LOGGING_CONFIG.enabled) {
+                console.log('❌ n8n Logging is disabled');
+                console.log('🔧 Enable with: toggleN8NLogging(true)');
+                return { success: false, reason: 'disabled' };
+            }
+            
+            const testPayload = {
+                action: 'log_interaction',
+                interaction: {
+                    type: 'test_message',
+                    timestamp: new Date().toISOString(),
+                    sessionId: 'test_session_' + Date.now(),
+                    data: { message: 'n8n logging test - ' + new Date().toLocaleString() },
+                    metadata: {
+                        userAgent: navigator.userAgent,
+                        language: navigator.language,
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        test: true
+                    }
+                },
+                metadata: {
+                    timestamp: new Date().toISOString(),
+                    source: 'web_chatbot',
+                    version: '2.0'
+                }
+            };
+            
+            try {
+                const response = await fetch(`${API_URL}${N8N_LOGGING_CONFIG.logEndpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'ngrok-skip-browser-warning': 'true'
+                    },
+                    body: JSON.stringify(testPayload)
+                });
+                
+                if (response.ok) {
+                    console.log('✅ n8n Logging test successful!');
+                    console.log('📊 Check your Google Sheet for the test data');
+                    return { success: true, status: response.status };
+                } else {
+                    console.error('❌ n8n Logging test failed:', response.status, response.statusText);
+                    return { success: false, status: response.status, error: response.statusText };
+                }
+                
+            } catch (error) {
+                console.error('❌ n8n Logging test error:', error);
+                return { success: false, error: error.message };
+            }
+        };
 
         // Google Apps Script setup instructions
         window.showGoogleAppsScriptSetup = function() {
@@ -2202,7 +2387,18 @@ function writeToSheet(data) {
             const requestData = {
                 chatInput: message,
                 sessionId: getSessionId(),
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                // Enhanced data for integrated logging
+                metadata: {
+                    messageId: messageId,
+                    userAgent: navigator.userAgent,
+                    language: navigator.language,
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    requestStartTime: requestStartTime,
+                    source: 'web_chatbot'
+                },
+                // Request logging in the same call
+                enableLogging: N8N_LOGGING_CONFIG.useIntegratedLogging
             };
             
             console.log('🚀 Sending request to:', requestUrl);
@@ -2591,6 +2787,17 @@ function writeToSheet(data) {
             console.log('🔍 AI Interaction Logging is active!');
             console.log('📊 Press Ctrl+Shift+A to open analytics dashboard');
             console.log('💾 Data is automatically saved locally and can be exported');
+            console.log('');
+            console.log('📋 INTEGRATION STATUS:');
+            console.log('   📊 n8n Logging:', N8N_LOGGING_CONFIG.enabled ? '✅ ENABLED' : '❌ Disabled');
+            console.log('   📄 Google Apps Script:', googleAppsScriptLogger.isEnabled ? '✅ ENABLED' : '❌ Disabled');
+            console.log('   💾 Local Storage: ✅ Always Available');
+            console.log('');
+            console.log('💡 QUICK COMMANDS:');
+            console.log('   📊 setupN8NLogging() - Setup n8n Google Sheets logging (RECOMMENDED)');
+            console.log('   🧪 testN8NLogging() - Test n8n logging');
+            console.log('   📋 checkIntegrationStatus() - View all integration status');
+            console.log('   🔧 toggleN8NLogging() - Enable/disable n8n logging');
         });
 
         // Better mobile support
