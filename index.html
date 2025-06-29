@@ -1300,6 +1300,22 @@
             }
         }
 
+        // Configuration variables - must be declared first
+        const API_URL = 'https://d107-2405-4803-d738-6750-1ce0-1119-75b8-f333.ngrok-free.app';
+        const WEBHOOK_ID = '9e86df65-9069-444d-ae7a-15a8f4676abb';
+        
+        // Google Sheets API Configuration
+        const GOOGLE_SHEETS_CONFIG = {
+            apiKey: 'AIzaSyA5KiOmApz57IJ7mIYZrQmlWfU-SvO95b0', // Your Google Sheets API key
+            sheetId: '1KCzDStpVM_7ndtLj6OMwC8DJA-gxnjOb6H1haVUIN3c', // Your Google Sheet ID
+            range: 'Sheet1!A:L', // Adjust range if needed
+            apiUrl: 'https://sheets.googleapis.com/v4/spreadsheets'
+        };
+
+        // Initialize variables
+        let lastUserMessage = '';
+        let consecutiveFailures = 0;
+
         // Initialize Google Sheets Logger
         const googleSheetsLogger = new GoogleSheetsLogger(GOOGLE_SHEETS_CONFIG);
 
@@ -1556,17 +1572,7 @@
             messageCount++;
         }
 
-        // API Configuration - Updated to match n8n webhook
-        const API_URL = 'https://d107-2405-4803-d738-6750-1ce0-1119-75b8-f333.ngrok-free.app';
-        const WEBHOOK_ID = '9e86df65-9069-444d-ae7a-15a8f4676abb';
-        
-        // Google Sheets API Configuration
-        const GOOGLE_SHEETS_CONFIG = {
-            apiKey: 'AIzaSyA5KiOmApz57IJ7mIYZrQmlWfU-SvO95b0', // Your Google Sheets API key
-            sheetId: '1KCzDStpVM_7ndtLj6OMwC8DJA-gxnjOb6H1haVUIN3c', // Your Google Sheet ID
-            range: 'Sheet1!A:L', // Adjust range if needed
-            apiUrl: 'https://sheets.googleapis.com/v4/spreadsheets'
-        };
+        // (API Configuration moved to top of script)
         
         // Alternative API methods to handle CORS issues
         async function sendMessageWithFallback(message, messageId, requestStartTime) {
@@ -1763,7 +1769,7 @@
         }
 
         // Enhanced functionality
-        let consecutiveFailures = 0;
+        // (consecutiveFailures declared at top of script)
         
         function updateConnectionStatus(online) {
             isConnected = online;
@@ -1937,7 +1943,7 @@
             sendMessage();
         }
 
-        let lastUserMessage = '';
+        // (lastUserMessage declared at top of script)
         
         function retryLastMessage() {
             if (lastUserMessage) {
